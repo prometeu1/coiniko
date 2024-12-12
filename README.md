@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+Coiniko - Site de Crypto pour Investisseurs 🚀
 
-## Getting Started
+Description 📊
 
-First, run the development server:
+Coiniko est une plateforme dédiée aux investisseurs en crypto-monnaies, offrant des informations actualisées sur le marché, des analyses détaillées et des outils essentiels pour une prise de décision éclairée.
 
-```bash
+Fonctionnalités principales 🛠️
+
+Suivi des Prix en Temps Réel 💰 : Accédez aux prix des principales crypto-monnaies.
+
+Analyses de Marché 📈 : Rapports, graphiques interactifs et analyses techniques.
+
+Actualités Crypto 📰 : Restez informé des dernières nouvelles du monde de la blockchain et des crypto-monnaies.
+
+Portefeuille Virtuel 💼 : Suivez vos investissements fictifs pour tester des stratégies.
+
+Alertes Personnalisées 🔔 : Recevez des notifications pour des événements de marché importants.
+
+Installation 💻
+
+Clonez le dépôt :
+
+git clone https://github.com/prometeu1/coiniko.git
+
+Accédez au dossier du projet :
+
+cd coiniko
+
+Installez les dépendances :
+
+npm install
+
+Lancez l'application en mode développement :
+
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Technologies Utilisées 🖥️
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Framework Frontend : Next.js (React.js)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Backend : Node.js, API Routes de Next.js
 
-## Learn More
+Base de Données : PostgreSQL
 
-To learn more about Next.js, take a look at the following resources:
+API de Marché : Intégration avec des API publiques comme CoinGecko ou Binance.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Contribution 🤝
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Les contributions sont les bienvenues ! Veuillez suivre ces étapes :
 
-## Deploy on Vercel
+Fork le projet.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Créez une branche pour votre fonctionnalité :
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+git checkout -b nouvelle-fonctionnalite
+
+Commitez vos modifications :
+
+git commit -m "Ajout de la nouvelle fonctionnalité"
+
+Poussez vos modifications :
+
+git push origin nouvelle-fonctionnalite
+
+Créez une Pull Request.
+
+Licence 📄
+
+Ce projet est sous licence MIT. Voir le fichier LICENSE pour plus de détails.
+
+Contact 📧
+
+Pour toute question, veuillez nous contacter à : kevin.bajurean@oteria.fr
