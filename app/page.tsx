@@ -4,12 +4,13 @@ import * as React from "react";
 import {
   ColumnDef,
   SortingState,
-  VisibilityState,
   flexRender,
   getCoreRowModel,
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
+  getFilteredRowModel,
+  ColumnFiltersState,
 } from "@tanstack/react-table";
 
 import { Button } from "@/components/ui/button";
@@ -22,9 +23,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ArrowUpDown } from "lucide-react";
 import { fetchLatestCryptocurrencyListings } from "@/lib/coinmarketcap";
 
-// Types des cryptomonnaies
+// Types for cryptocurrencies
 export type Crypto = {
   id: number;
   name: string;
@@ -32,16 +34,19 @@ export type Crypto = {
   cmc_rank: number;
   price: number;
   percent_change_1h: number | null;
+  percent_change_24h: number | null;
+  percent_change_7d: number | null;
   market_cap: number | null;
+  volume_24h: number | null;
 };
 
-// Colonnes pour la table
+// Table columns
 const columns: ColumnDef<Crypto>[] = [
   {
     accessorKey: "name",
-    header: "Nom",
+    header: "Name",
     cell: ({ row }) => {
-      const id = row.original.id; // ID pour l'URL du logo
+      const id = row.original.id;
       const name = row.original.name;
 
       return (
@@ -58,50 +63,150 @@ const columns: ColumnDef<Crypto>[] = [
   },
   {
     accessorKey: "symbol",
-    header: "Symbole",
+    header: "Symbol",
+    cell: ({ row }) => (
+      <div className="text-center">{row.getValue("symbol")}</div>
+    ),
   },
   {
     accessorKey: "cmc_rank",
-    header: "Rang",
-    cell: ({ row }) => `#${row.getValue("cmc_rank")}`,
+    header: "Rank",
+    cell: ({ row }) => (
+      <div className="text-center">#{row.getValue("cmc_rank")}</div>
+    ),
   },
   {
     accessorKey: "price",
-    header: "Prix (USD)",
+    header: ({ column }) => (
+      <Button
+        variant="ghost"
+        onClick={() => column.toggleSorting()}
+      >
+        Price (USD)
+        <ArrowUpDown className="ml-2 h-4 w-4" />
+      </Button>
+    ),
     cell: ({ row }) => {
       const price = row.getValue("price");
-      return `$${(price as number)?.toFixed(2) || "0.00"}`;
+      return (
+        <div className="text-center">
+          ${typeof price === "number" ? price.toFixed(2) : "0.00"}
+        </div>
+      );
     },
   },
   {
     accessorKey: "percent_change_1h",
-    header: "Variation 1H",
+    header: ({ column }) => (
+      <Button
+        variant="ghost"
+        onClick={() => column.toggleSorting()}
+      >
+        1H Change
+        <ArrowUpDown className="ml-2 h-4 w-4" />
+      </Button>
+    ),
     cell: ({ row }) => {
       const change = row.getValue("percent_change_1h");
-      const isPositive = change !== null && (change as number) >= 0;
+      const isPositive = typeof change === "number" && change >= 0;
 
       return (
-        <span className={isPositive ? "text-green-600" : "text-red-600"}>
-          {change !== null ? `${(change as number).toFixed(2)}%` : "N/A"}
-        </span>
+        <div className="text-center">
+          <span className={isPositive ? "text-green-600" : "text-red-600"}>
+            {typeof change === "number" ? `${change.toFixed(2)}%` : "N/A"}
+          </span>
+        </div>
+      );
+    },
+  },
+  {
+    accessorKey: "percent_change_24h",
+    header: ({ column }) => (
+      <Button
+        variant="ghost"
+        onClick={() => column.toggleSorting()}
+      >
+        24H Change
+        <ArrowUpDown className="ml-2 h-4 w-4" />
+      </Button>
+    ),
+    cell: ({ row }) => {
+      const change = row.getValue("percent_change_24h");
+      const isPositive = typeof change === "number" && change >= 0;
+
+      return (
+        <div className="text-center">
+          <span className={isPositive ? "text-green-600" : "text-red-600"}>
+            {typeof change === "number" ? `${change.toFixed(2)}%` : "N/A"}
+          </span>
+        </div>
+      );
+    },
+  },
+  {
+    accessorKey: "percent_change_7d",
+    header: ({ column }) => (
+      <Button
+        variant="ghost"
+        onClick={() => column.toggleSorting()}
+      >
+        7D Change
+        <ArrowUpDown className="ml-2 h-4 w-4" />
+      </Button>
+    ),
+    cell: ({ row }) => {
+      const change = row.getValue("percent_change_7d");
+      const isPositive = typeof change === "number" && change >= 0;
+
+      return (
+        <div className="text-center">
+          <span className={isPositive ? "text-green-600" : "text-red-600"}>
+            {typeof change === "number" ? `${change.toFixed(2)}%` : "N/A"}
+          </span>
+        </div>
       );
     },
   },
   {
     accessorKey: "market_cap",
-    header: "Capitalisation Boursière",
-    cell: ({ row }) => {
-      const marketCap = row.getValue("market_cap");
-      return `$${marketCap?.toLocaleString() || "0"}`;
-    },
+    header: ({ column }) => (
+      <Button
+        variant="ghost"
+        onClick={() => column.toggleSorting()}
+      >
+        Market Cap
+        <ArrowUpDown className="ml-2 h-4 w-4" />
+      </Button>
+    ),
+    cell: ({ row }) => (
+      <div className="text-center">
+        ${row.getValue("market_cap")?.toLocaleString() || "0"}
+      </div>
+    ),
+  },
+  {
+    accessorKey: "volume_24h",
+    header: ({ column }) => (
+      <Button
+        variant="ghost"
+        onClick={() => column.toggleSorting()}
+      >
+        24H Volume
+        <ArrowUpDown className="ml-2 h-4 w-4" />
+      </Button>
+    ),
+    cell: ({ row }) => (
+      <div className="text-center">
+        ${row.getValue("volume_24h")?.toLocaleString() || "0"}
+      </div>
+    ),
   },
 ];
 
 export default function Page() {
   const [cryptos, setCryptos] = React.useState<Crypto[]>([]);
   const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [columnVisibility, setColumnVisibility] =
-    React.useState<VisibilityState>({});
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
 
   React.useEffect(() => {
     async function fetchData() {
@@ -114,11 +219,14 @@ export default function Page() {
           cmc_rank: crypto.cmc_rank,
           price: crypto.quote?.USD?.price ?? 0,
           percent_change_1h: crypto.quote?.USD?.percent_change_1h ?? null,
+          percent_change_24h: crypto.quote?.USD?.percent_change_24h ?? null,
+          percent_change_7d: crypto.quote?.USD?.percent_change_7d ?? null,
           market_cap: crypto.quote?.USD?.market_cap ?? 0,
+          volume_24h: crypto.quote?.USD?.volume_24h ?? 0,
         }));
         setCryptos(formattedData);
       } catch (error) {
-        console.error("Erreur lors du chargement des cryptos:", error);
+        console.error("Error loading cryptocurrencies:", error);
       }
     }
     fetchData();
@@ -129,22 +237,21 @@ export default function Page() {
     columns,
     state: {
       sorting,
-      columnVisibility,
+      columnFilters,
     },
     onSortingChange: setSorting,
-    onColumnVisibilityChange: setColumnVisibility,
+    onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
   });
 
   return (
     <div className="w-full p-4">
-      <h1 className="text-xl font-semibold text-center mb-4">
-        Liste des Cryptomonnaies
-      </h1>
       <Input
-        placeholder="Rechercher une crypto..."
+        placeholder="Search for a cryptocurrency..."
+        value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
         onChange={(e) =>
           table.getColumn("name")?.setFilterValue(e.target.value)
         }
@@ -156,7 +263,7 @@ export default function Page() {
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
+                  <TableHead key={header.id} className="text-center">
                     {header.isPlaceholder
                       ? null
                       : flexRender(
@@ -173,7 +280,14 @@ export default function Page() {
               table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id}>
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell
+                      key={cell.id}
+                      className={
+                        cell.column.id === "name"
+                        ?"align-middle"
+                        :"text-center align-middle"
+                     }
+                    >
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()
@@ -185,21 +299,21 @@ export default function Page() {
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="text-center">
-                  Chargement des données...
+                  Loading data...
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
-      <div className="flex items-center justify-end space-x-2 py-4">
+      <div className="flex items-center justify-end space-x-4">
         <Button
           variant="outline"
           size="sm"
           onClick={() => table.previousPage()}
           disabled={!table.getCanPreviousPage()}
         >
-          Précédent
+          Previous
         </Button>
         <Button
           variant="outline"
@@ -207,7 +321,7 @@ export default function Page() {
           onClick={() => table.nextPage()}
           disabled={!table.getCanNextPage()}
         >
-          Suivant
+          Next
         </Button>
       </div>
     </div>
