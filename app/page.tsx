@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import * as React from "react";
 import {
   ColumnDef,
@@ -38,6 +39,16 @@ export type Crypto = {
   percent_change_7d: number | null;
   market_cap: number | null;
   volume_24h: number | null;
+  quote?: {
+    USD?: {
+      price?: number;
+      percent_change_1h?: number;
+      percent_change_24h?: number;
+      percent_change_7d?: number;
+      market_cap?: number;
+      volume_24h?: number;
+    };
+  };
 };
 
 // Table columns
@@ -51,9 +62,11 @@ const columns: ColumnDef<Crypto>[] = [
 
       return (
         <div className="flex items-center gap-2">
-          <img
+          <Image
             src={`https://s2.coinmarketcap.com/static/img/coins/64x64/${id}.png`}
             alt={name}
+            width={24}
+            height={24}
             className="w-6 h-6"
           />
           <span>{name}</span>
@@ -212,7 +225,7 @@ export default function Page() {
     async function fetchData() {
       try {
         const data = await fetchLatestCryptocurrencyListings();
-        const formattedData = data.map((crypto: any) => ({
+        const formattedData = data.map((crypto: Crypto) => ({
           id: crypto.id,
           name: crypto.name,
           symbol: crypto.symbol,
