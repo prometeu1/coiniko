@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import Image from "next/image";
 import * as React from "react";
 import {
@@ -49,6 +50,15 @@ export type Crypto = {
       volume_24h?: number;
     };
   };
+};
+
+// Dictionary for exceptions
+const cryptoNameExceptions: Record<string, string> = {
+  "bittorrent-[new]": "bittorrent",
+  "dydx-(native)": "dydx-ethdydx",
+  "brett-(based)": "brett",
+  "pol-(ex-matic)": "polygon",
+  "tether-usdt": "tether",
 };
 
 // Table columns
@@ -133,54 +143,6 @@ const columns: ColumnDef<Crypto>[] = [
     },
   },
   {
-    accessorKey: "percent_change_24h",
-    header: ({ column }) => (
-      <Button
-        variant="ghost"
-        onClick={() => column.toggleSorting()}
-      >
-        24H Change
-        <ArrowUpDown className="ml-2 h-4 w-4" />
-      </Button>
-    ),
-    cell: ({ row }) => {
-      const change = row.getValue("percent_change_24h");
-      const isPositive = typeof change === "number" && change >= 0;
-
-      return (
-        <div className="text-center">
-          <span className={isPositive ? "text-green-600" : "text-red-600"}>
-            {typeof change === "number" ? `${change.toFixed(2)}%` : "N/A"}
-          </span>
-        </div>
-      );
-    },
-  },
-  {
-    accessorKey: "percent_change_7d",
-    header: ({ column }) => (
-      <Button
-        variant="ghost"
-        onClick={() => column.toggleSorting()}
-      >
-        7D Change
-        <ArrowUpDown className="ml-2 h-4 w-4" />
-      </Button>
-    ),
-    cell: ({ row }) => {
-      const change = row.getValue("percent_change_7d");
-      const isPositive = typeof change === "number" && change >= 0;
-
-      return (
-        <div className="text-center">
-          <span className={isPositive ? "text-green-600" : "text-red-600"}>
-            {typeof change === "number" ? `${change.toFixed(2)}%` : "N/A"}
-          </span>
-        </div>
-      );
-    },
-  },
-  {
     accessorKey: "market_cap",
     header: ({ column }) => (
       <Button
@@ -232,8 +194,6 @@ export default function Page() {
           cmc_rank: crypto.cmc_rank,
           price: crypto.quote?.USD?.price ?? 0,
           percent_change_1h: crypto.quote?.USD?.percent_change_1h ?? null,
-          percent_change_24h: crypto.quote?.USD?.percent_change_24h ?? null,
-          percent_change_7d: crypto.quote?.USD?.percent_change_7d ?? null,
           market_cap: crypto.quote?.USD?.market_cap ?? 0,
           volume_24h: crypto.quote?.USD?.volume_24h ?? 0,
         }));
@@ -248,10 +208,7 @@ export default function Page() {
   const table = useReactTable({
     data: cryptos,
     columns,
-    state: {
-      sorting,
-      columnFilters,
-    },
+    state: { sorting, columnFilters },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
@@ -290,25 +247,28 @@ export default function Page() {
           </TableHeader>
           <TableBody>
             {table.getRowModel().rows.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
-                      className={
-                        cell.column.id === "name"
-                        ?"align-middle"
-                        :"text-center align-middle"
-                     }
-                    >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              table.getRowModel().rows.map((row) => {
+                const originalName = row.original.name.toLowerCase().replace(/ /g, "-");
+                const name = cryptoNameExceptions[originalName] || originalName;
+                const cryptoUrl = `https://coinmarketcap.com/currencies/${name}/`;
+
+                return (
+                  <TableRow
+                    key={row.id}
+                    className="hover:bg-gray-100 cursor-pointer"
+                    onClick={() => window.open(cryptoUrl, "_blank")}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell
+                        key={cell.id}
+                        className={cell.column.id === "name" ? "align-middle" : "text-center align-middle"}
+                      >
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                );
+              })
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="text-center">
@@ -318,24 +278,6 @@ export default function Page() {
             )}
           </TableBody>
         </Table>
-      </div>
-      <div className="flex items-center justify-end space-x-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
-        >
-          Previous
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
-        >
-          Next
-        </Button>
       </div>
     </div>
   );
