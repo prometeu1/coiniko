@@ -1,90 +1,214 @@
-// page.tsx
-import { fetchLatestCryptocurrencyListings } from '@/lib/coinmarketcap';
+"use client";
 
-interface ICrypto {
+import * as React from "react";
+import {
+  ColumnDef,
+  SortingState,
+  VisibilityState,
+  flexRender,
+  getCoreRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { fetchLatestCryptocurrencyListings } from "@/lib/coinmarketcap";
+
+// Types des cryptomonnaies
+export type Crypto = {
   id: number;
   name: string;
   symbol: string;
   cmc_rank: number;
-  quote: {
-    USD: {
-      price: number;
-      percent_change_1h: number;
-      percent_change_24h: number;
-      percent_change_7d: number;
-      market_cap: number;
-    };
-  };
-}
+  price: number;
+  percent_change_1h: number | null;
+  market_cap: number | null;
+};
 
-export default async function Page() {
-  const cryptocurrencies = await fetchLatestCryptocurrencyListings();
+// Colonnes pour la table
+const columns: ColumnDef<Crypto>[] = [
+  {
+    accessorKey: "name",
+    header: "Nom",
+    cell: ({ row }) => {
+      const id = row.original.id; // ID pour l'URL du logo
+      const name = row.original.name;
+
+      return (
+        <div className="flex items-center gap-2">
+          <img
+            src={`https://s2.coinmarketcap.com/static/img/coins/64x64/${id}.png`}
+            alt={name}
+            className="w-6 h-6"
+          />
+          <span>{name}</span>
+        </div>
+      );
+    },
+  },
+  {
+    accessorKey: "symbol",
+    header: "Symbole",
+  },
+  {
+    accessorKey: "cmc_rank",
+    header: "Rang",
+    cell: ({ row }) => `#${row.getValue("cmc_rank")}`,
+  },
+  {
+    accessorKey: "price",
+    header: "Prix (USD)",
+    cell: ({ row }) => {
+      const price = row.getValue("price");
+      return `$${(price as number)?.toFixed(2) || "0.00"}`;
+    },
+  },
+  {
+    accessorKey: "percent_change_1h",
+    header: "Variation 1H",
+    cell: ({ row }) => {
+      const change = row.getValue("percent_change_1h");
+      const isPositive = change !== null && (change as number) >= 0;
+
+      return (
+        <span className={isPositive ? "text-green-600" : "text-red-600"}>
+          {change !== null ? `${(change as number).toFixed(2)}%` : "N/A"}
+        </span>
+      );
+    },
+  },
+  {
+    accessorKey: "market_cap",
+    header: "Capitalisation Boursière",
+    cell: ({ row }) => {
+      const marketCap = row.getValue("market_cap");
+      return `$${marketCap?.toLocaleString() || "0"}`;
+    },
+  },
+];
+
+export default function Page() {
+  const [cryptos, setCryptos] = React.useState<Crypto[]>([]);
+  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [columnVisibility, setColumnVisibility] =
+    React.useState<VisibilityState>({});
+
+  React.useEffect(() => {
+    async function fetchData() {
+      try {
+        const data = await fetchLatestCryptocurrencyListings();
+        const formattedData = data.map((crypto: any) => ({
+          id: crypto.id,
+          name: crypto.name,
+          symbol: crypto.symbol,
+          cmc_rank: crypto.cmc_rank,
+          price: crypto.quote?.USD?.price ?? 0,
+          percent_change_1h: crypto.quote?.USD?.percent_change_1h ?? null,
+          market_cap: crypto.quote?.USD?.market_cap ?? 0,
+        }));
+        setCryptos(formattedData);
+      } catch (error) {
+        console.error("Erreur lors du chargement des cryptos:", error);
+      }
+    }
+    fetchData();
+  }, []);
+
+  const table = useReactTable({
+    data: cryptos,
+    columns,
+    state: {
+      sorting,
+      columnVisibility,
+    },
+    onSortingChange: setSorting,
+    onColumnVisibilityChange: setColumnVisibility,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background p-4">
-      <div className="w-full max-w-7xl rounded-md border bg-card shadow-md p-4">
-        <h1 className="text-xl font-normal mb-4 text-center">Liste des Cryptomonnaies</h1>
-
-        <table className="w-full table-auto border-collapse text-sm">
-          <thead className="bg-muted text-left">
-            <tr>
-              <th className="p-2">Logo</th>
-              <th className="p-2">Nom</th>
-              <th className="p-2">Symbole</th>
-              <th className="p-2">Rang</th>
-              <th className="p-2">Prix (USD)</th>
-              <th className="p-2">Variation 1H</th>
-              <th className="p-2">Capitalisation Boursière</th>
-              <th className="p-2">Variation 24H</th>
-              <th className="p-2">Variation 7J</th>
-            </tr>
-          </thead>
-          <tbody>
-            {cryptocurrencies.map((crypto: ICrypto) => (
-              <tr key={crypto.id} className="even:bg-muted/50">
-                <td className="p-2">
-                  <img
-                    src={`https://s2.coinmarketcap.com/static/img/coins/64x64/${crypto.id}.png`}
-                    alt={crypto.name}
-                    className="w-10 h-10"
-                  />
-                </td>
-                <td className="p-2">{crypto.name}</td>
-                <td className="p-2">{crypto.symbol}</td>
-                <td className="p-2">#{crypto.cmc_rank}</td>
-                <td className="p-2">${crypto.quote.USD.price.toFixed(2)}</td>
-                <td
-                  className={`p-2 ${
-                    crypto.quote.USD.percent_change_1h >= 0
-                      ? 'text-green-600'
-                      : 'text-red-600'
-                  }`}
-                >
-                  {crypto.quote.USD.percent_change_1h.toFixed(2)}%
-                </td>
-                <td className="p-2">${crypto.quote.USD.market_cap.toLocaleString()}</td>
-                <td
-                  className={`p-2 ${
-                    crypto.quote.USD.percent_change_24h >= 0
-                      ? 'text-green-600'
-                      : 'text-red-600'
-                  }`}
-                >
-                  {crypto.quote.USD.percent_change_24h.toFixed(2)}%
-                </td>
-                <td
-                  className={`p-2 ${
-                    crypto.quote.USD.percent_change_7d >= 0
-                      ? 'text-green-600'
-                      : 'text-red-600'
-                  }`}
-                >
-                  {crypto.quote.USD.percent_change_7d.toFixed(2)}%
-                </td>
-              </tr>
+    <div className="w-full p-4">
+      <h1 className="text-xl font-semibold text-center mb-4">
+        Liste des Cryptomonnaies
+      </h1>
+      <Input
+        placeholder="Rechercher une crypto..."
+        onChange={(e) =>
+          table.getColumn("name")?.setFilterValue(e.target.value)
+        }
+        className="max-w-sm mb-4"
+      />
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id}>
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                  </TableHead>
+                ))}
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows.length ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow key={row.id}>
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={columns.length} className="text-center">
+                  Chargement des données...
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+      <div className="flex items-center justify-end space-x-2 py-4">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => table.previousPage()}
+          disabled={!table.getCanPreviousPage()}
+        >
+          Précédent
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => table.nextPage()}
+          disabled={!table.getCanNextPage()}
+        >
+          Suivant
+        </Button>
       </div>
     </div>
   );
