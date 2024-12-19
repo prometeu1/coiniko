@@ -58,6 +58,7 @@ const cryptoNameExceptions: Record<string, string> = {
   "brett-(based)": "brett",
   "pol-(ex-matic)": "polygon",
   "tether-usdt": "tether",
+  "usdc": "usd-coin",
 };
 
 // Table columns
@@ -254,7 +255,7 @@ export default function Page() {
                 return (
                   <TableRow
                     key={row.id}
-                    className="hover:bg-gray-100 cursor-pointer"
+                    className="hover:bg-blue-400 dark:hover:bg-blue-900 cursor-pointer transition-colors"
                     onClick={() => window.open(cryptoUrl, "_blank")}
                   >
                     {row.getVisibleCells().map((cell) => (
