@@ -60,6 +60,9 @@ body {
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
   }
+  body {
+    @apply bg-background text-foreground;
+  }
 }
 
 @layer base {
@@ -70,3 +73,43 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+@layer components {
+  .border-border {
+    border-color: var(--border);
+  }
+}
+
+.table-container {
+  background-color: white;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Par défaut, light mode */
+html {
+  --background-color: white;
+  --text-color: black;
+}
+
+/* Dark mode */
+html.dark {
+  --background-color: #1a1a1a;
+  --text-color: #eaeaea;
+}
+
+body {
+  background-color: var(--background-color);
+  color: var(--text-color);
+  transition: background-color 0.3s, color 0.3s;
+}
+
+/* Effet de survol dans les tables */
+tr:hover {
+  background-color: var(--muted);
+  color: var(--foreground);
+}
+
+
+

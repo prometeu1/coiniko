@@ -1,66 +1,87 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import Link from "next/link"
-
-import { cn } from "@/lib/utils"
+import * as React from "react";
+import Link from "next/link";
+import Image from "next/image"; // Import de 'next/image'
+import { useState } from "react";
 
 import {
   NavigationMenu,
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
-  navigationMenuTriggerStyle,
-} from "@/components/ui/navigation-menu"
-
+} from "@/components/ui/navigation-menu";
 
 export function NavigationMenuDemo() {
-    return (
-      <div className="flex items-center justify-center w-full mt-8">
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  const toggleTheme = () => {
+    setIsDarkMode(!isDarkMode);
+    if (typeof document !== "undefined") {
+      document.documentElement.classList.toggle("dark", !isDarkMode);
+    }
+  };
+
+  return (
+    <div>
+      {/* Navbar principale */}
+      <div className="flex items-center justify-between w-full px-4 mt-4">
+        {/* Logo en GIF */}
+        <div className="flex items-center">
+          <Image
+            src="/COINIKO.gif" // Source du GIF
+            alt="Logo"
+            width={100} // Largeur
+            height={40} // Hauteur
+            priority // Optimisation du chargement
+            className="object-contain" // Style pour un rendu propre
+          />
+        </div>
+
+        {/* Navigation Menu */}
         <NavigationMenu>
-          <NavigationMenuList className="flex items-center justify-center space-x-6">
+          <NavigationMenuList className="flex items-center space-x-4">
+            <NavigationMenuItem>
+              <Link href="/" legacyBehavior passHref>
+                <NavigationMenuLink
+                  className={`text-md px-4 py-2 rounded bg-[#004aad] text-white hover:bg-blue-600`}
+                >
+                  Home
+                </NavigationMenuLink>
+              </Link>
+            </NavigationMenuItem>
             <NavigationMenuItem>
               <Link href="/market-insight" legacyBehavior passHref>
-                <NavigationMenuLink className={navigationMenuTriggerStyle() + " text-lg"}>
+                <NavigationMenuLink
+                  className={`text-md px-4 py-2 rounded bg-[#004aad] text-white hover:bg-blue-600`}
+                >
                   Market Insights
                 </NavigationMenuLink>
               </Link>
             </NavigationMenuItem>
             <NavigationMenuItem>
               <Link href="/coinlisting" legacyBehavior passHref>
-                <NavigationMenuLink className={navigationMenuTriggerStyle() + " text-lg"}>
+                <NavigationMenuLink
+                  className={`text-md px-4 py-2 rounded bg-[#004aad] text-white hover:bg-blue-600`}
+                >
                   Coin Listing
                 </NavigationMenuLink>
               </Link>
             </NavigationMenuItem>
           </NavigationMenuList>
         </NavigationMenu>
-      </div>
-    )
-  }
 
-const ListItem = React.forwardRef<
-  React.ElementRef<"a">,
-  React.ComponentPropsWithoutRef<"a">
->(({ className, title, children, ...props }, ref) => {
-  return (
-    <li>
-      <NavigationMenuLink asChild>
-        <a
-          ref={ref}
-          className={cn(
-            "block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
-            className
-          )}
-          {...props}
+        {/* Bouton pour changer le thème */}
+        <button
+          onClick={toggleTheme}
+          className="px-4 py-2 rounded bg-[#004aad] text-white hover:bg-blue-600"
         >
-          <div className="text-sm font-medium leading-none">{title}</div>
-          <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
-            {children}
-          </p>
-        </a>
-      </NavigationMenuLink>
-    </li>
-  )
-})
-ListItem.displayName = "ListItem"
+          {isDarkMode ? "Light Mode" : "Dark Mode"}
+        </button>
+      </div>
+
+      {/* Ligne de séparation */}
+      <div className="w-full h-[1px] bg-gray-300 dark:bg-gray-700 mt-2"></div>
+    </div>
+  );
+}
