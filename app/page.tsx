@@ -59,6 +59,13 @@ const cryptoNameExceptions: Record<string, string> = {
   "pol-(ex-matic)": "polygon",
   "tether-usdt": "tether",
   "usdc": "usd-coin",
+  "floki": "floki-inu",
+  "bitget-token": "bitget-token-new",
+  "virtuals-protocol": "virtual-protocol",
+  "optimism": "optimism-ethereum",
+  "ondo": "ondo-finance",
+  "jasmycoin" : "jasmy",
+  "starknet": "starknet-token",
 };
 
 // Table columns
@@ -218,16 +225,16 @@ export default function Page() {
   });
 
   return (
-    <div className="w-full p-4">
+    <div className="w-full p-8 bg-gray-100 dark:bg-gray-900">
       <Input
         placeholder="Search for a cryptocurrency..."
         value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
         onChange={(e) =>
           table.getColumn("name")?.setFilterValue(e.target.value)
         }
-        className="max-w-sm mb-4"
+        className="max-w-sm mb-4 shadow-md"
       />
-      <div className="rounded-md border">
+      <div className="rounded-lg shadow-lg bg-white dark:bg-gray-800 p-4">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -255,7 +262,7 @@ export default function Page() {
                 return (
                   <TableRow
                     key={row.id}
-                    className="hover:bg-blue-400 dark:hover:bg-blue-900 cursor-pointer transition-colors"
+                    className="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors"
                     onClick={() => window.open(cryptoUrl, "_blank")}
                   >
                     {row.getVisibleCells().map((cell) => (
