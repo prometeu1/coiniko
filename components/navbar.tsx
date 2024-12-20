@@ -2,8 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
-import Image from "next/image"; // Import de 'next/image'
-import { useState } from "react";
+import Image from "next/image";
+import { useEffect, useState } from "react";
 
 import {
   NavigationMenu,
@@ -14,6 +14,14 @@ import {
 
 export function NavigationMenuDemo() {
   const [isDarkMode, setIsDarkMode] = useState(false);
+
+  // Synchroniser l'état du thème avec la classe du document
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      const isDark = document.documentElement.classList.contains("dark");
+      setIsDarkMode(isDark);
+    }
+  }, []);
 
   const toggleTheme = () => {
     setIsDarkMode(!isDarkMode);
@@ -29,12 +37,12 @@ export function NavigationMenuDemo() {
         {/* Logo en GIF */}
         <div className="flex items-center">
           <Image
-            src="/COINIKO.gif" // Source du GIF
+            src="/COINIKO.gif"
             alt="Logo"
-            width={100} // Largeur
-            height={40} // Hauteur
-            priority // Optimisation du chargement
-            className="object-contain" // Style pour un rendu propre
+            width={100}
+            height={40}
+            priority
+            className="object-contain"
           />
         </div>
 
@@ -43,27 +51,21 @@ export function NavigationMenuDemo() {
           <NavigationMenuList className="flex items-center space-x-4">
             <NavigationMenuItem>
               <Link href="/" legacyBehavior passHref>
-                <NavigationMenuLink
-                  className={`text-md px-4 py-2 rounded bg-[#004aad] text-white hover:bg-blue-600`}
-                >
+                <NavigationMenuLink className="text-md px-4 py-2 rounded bg-[#004aad] text-white hover:bg-blue-600">
                   Home
                 </NavigationMenuLink>
               </Link>
             </NavigationMenuItem>
             <NavigationMenuItem>
               <Link href="/market-insight" legacyBehavior passHref>
-                <NavigationMenuLink
-                  className={`text-md px-4 py-2 rounded bg-[#004aad] text-white hover:bg-blue-600`}
-                >
+                <NavigationMenuLink className="text-md px-4 py-2 rounded bg-[#004aad] text-white hover:bg-blue-600">
                   Market Insights
                 </NavigationMenuLink>
               </Link>
             </NavigationMenuItem>
             <NavigationMenuItem>
               <Link href="/coinlisting" legacyBehavior passHref>
-                <NavigationMenuLink
-                  className={`text-md px-4 py-2 rounded bg-[#004aad] text-white hover:bg-blue-600`}
-                >
+                <NavigationMenuLink className="text-md px-4 py-2 rounded bg-[#004aad] text-white hover:bg-blue-600">
                   Coin Listing
                 </NavigationMenuLink>
               </Link>
@@ -74,9 +76,14 @@ export function NavigationMenuDemo() {
         {/* Bouton pour changer le thème */}
         <button
           onClick={toggleTheme}
-          className="px-4 py-2 rounded bg-[#004aad] text-white hover:bg-blue-600"
+          className="px-4 py-2 rounded bg-[#004aad] text-white hover:bg-blue-600 flex items-center justify-center"
         >
-          {isDarkMode ? "Light Mode" : "Dark Mode"}
+          <Image
+            src={isDarkMode ? "/sun-icon.png" : "/moon-icon.png"}
+            alt={isDarkMode ? "Light Mode" : "Dark Mode"}
+            width={20}
+            height={20}
+          />
         </button>
       </div>
 
