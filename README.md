@@ -1,36 +1,105 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🌟 **Coiniko** - Your Gateway to Cryptocurrencies 🌍
 
-## Getting Started
+## 🎯 **Pitch**
 
-First, run the development server:
+**Coiniko** is an interactive platform that simplifies cryptocurrency tracking by providing real-time data in an intuitive and visually appealing way.  
+"With Coiniko, dive into the world of cryptocurrencies and stay informed effortlessly with accurate and up-to-date information."
+
+---
+
+## 📋 **Description**
+
+**What is Coiniko?**  
+Coiniko is a sleek and user-friendly platform for tracking cryptocurrency prices, market caps, and trading volumes. It empowers users by providing detailed insights into market trends and facilitating smarter decisions.  
+
+**Why is it useful?**  
+Cryptocurrency data can be overwhelming. Coiniko organizes and presents the data in a way that's easy to understand, saving time and effort.  
+
+**Who are the users?**  
+- Crypto enthusiasts 🌟  
+- Traders looking for real-time market insights 📊  
+- Anyone curious about cryptocurrency trends 🚀  
+
+---
+
+## 🚀 **Features**
+
+- [x] **Dynamic Search**: Quickly find information about specific cryptocurrencies.  
+- [x] **Real-Time Data**: Prices, changes, market caps, and trading volumes powered by the CoinMarketCap API.  
+- [x] **Interactive Data Table**: Sort and filter cryptocurrency data effortlessly.  
+- [x] **Light/Dark Mode**: Toggle between themes for better readability.  
+- [ ] **Advanced Analytics** (coming soon): Insights into historical trends and predictions.  
+
+---
+
+## 🛠️ **Stack Technique**
+
+- **Front-end:** Next.js, TypeScript, Tailwind CSS  
+- **Back-end:** Integration with CoinMarketCap API  
+- **Deployment:** Vercel  
+- **Libraries:**  
+  - **UI Components:** Lucide Icons, TanStack Table  
+  - **Styling:** Tailwind CSS with dark mode support  
+
+---
+
+## 🛠️ **Installation & Setup**
+To set up and run Coiniko locally:
 
 ```bash
+# Clone the repository
+git clone https://github.com/prometeu1/coiniko.git
+
+# Navigate to the project directory
+cd coiniko
+
+# Install dependencies
+npm install
+
+# Start the development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+
+# Build for production
+npm run build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 🌐 **Environment Variables**
+To use Coiniko locally, you need to configure the **CoinMarketCap API key**. Follow these steps:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Create a `.env.local` file in the root directory of the project:
+   ```plaintext
+   NEXT_PUBLIC_CMC_API_KEY=YOUR_API_KEY_HERE
+   ```
 
-## Learn More
+2. Replace `YOUR_API_KEY_HERE` with your CoinMarketCap API key.
 
-To learn more about Next.js, take a look at the following resources:
+3. **How to Get a CoinMarketCap API Key**:
+   - Visit the [CoinMarketCap API](https://coinmarketcap.com/api/) website.
+   - **Sign up for a free account** if you don’t already have one.
+   - Navigate to **Overview** or **DEX Overview** in the API section of your account.
+   - Copy the provided API key and paste it into your `.env.local` file.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🗺️ **Roadmap**
 
-## Deploy on Vercel
+- Add advanced analytics and portfolio management.
+- Expand API integration for more insights.
+- Mobile responsiveness and PWA support.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📜 **Licence**
+
+This project is licensed under the MIT License.
+
+---
+
+## ✍️ **Auteurs**
+
+- **Kevin**: Lead Developer, Designer  
+- **Contributors**: Open for collaboration  
+
+
