@@ -24,14 +24,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowUpDown, Plus, Minus, Search, TrendingUp, TrendingDown, DollarSign, Zap, Wallet } from "lucide-react";
+import { ArrowUpDown, Plus, Minus, Search, TrendingUp, TrendingDown, DollarSign, Zap } from "lucide-react";
 import { fetchLatestCryptocurrencyListings } from "@/lib/coinmarketcap";
 import { useWallet } from "@/lib/walletContext";
 import { toast } from "@/components/ui/use-toast";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
 
 // Types for cryptocurrencies
 export type Crypto = {
@@ -57,7 +56,8 @@ export type Crypto = {
   };
 };
 
-// Dictionary for exceptions
+// Disabled unused Dictionary for exceptions
+/* 
 const cryptoNameExceptions: Record<string, string> = {
   "bittorrent-[new]": "bittorrent",
   "dydx-(native)": "dydx-ethdydx",
@@ -73,6 +73,7 @@ const cryptoNameExceptions: Record<string, string> = {
   "jasmycoin" : "jasmy",
   "starknet": "starknet-token",
 };
+*/
 
 export default function Page() {
   const [cryptos, setCryptos] = React.useState<Crypto[]>([]);
@@ -294,7 +295,25 @@ export default function Page() {
       setIsLoading(true);
       try {
         const data = await fetchLatestCryptocurrencyListings();
-        const formattedData = data.map((crypto: any) => ({
+        
+        interface CryptoApiResponse {
+          id: number;
+          name: string;
+          symbol: string;
+          cmc_rank: number;
+          quote?: {
+            USD?: {
+              price?: number;
+              percent_change_1h?: number;
+              percent_change_24h?: number;
+              percent_change_7d?: number;
+              market_cap?: number;
+              volume_24h?: number;
+            };
+          };
+        }
+        
+        const formattedData = data.map((crypto: CryptoApiResponse) => ({
           id: crypto.id,
           name: crypto.name,
           symbol: crypto.symbol,
