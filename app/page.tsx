@@ -24,12 +24,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowUpDown, Plus, Minus } from "lucide-react";
+import { ArrowUpDown, Plus, Minus, Search, TrendingUp, TrendingDown, DollarSign, Zap } from "lucide-react";
 import { fetchLatestCryptocurrencyListings } from "@/lib/coinmarketcap";
 import { useWallet } from "@/lib/walletContext";
 import { toast } from "@/components/ui/use-toast";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 
 // Types for cryptocurrencies
 export type Crypto = {
@@ -55,7 +56,8 @@ export type Crypto = {
   };
 };
 
-// Dictionary for exceptions
+// Disabled unused Dictionary for exceptions
+/* 
 const cryptoNameExceptions: Record<string, string> = {
   "bittorrent-[new]": "bittorrent",
   "dydx-(native)": "dydx-ethdydx",
@@ -71,6 +73,7 @@ const cryptoNameExceptions: Record<string, string> = {
   "jasmycoin" : "jasmy",
   "starknet": "starknet-token",
 };
+*/
 
 export default function Page() {
   const [cryptos, setCryptos] = React.useState<Crypto[]>([]);
@@ -81,6 +84,7 @@ export default function Page() {
   const [tradeType, setTradeType] = React.useState<'buy' | 'sell'>('buy');
   const [amount, setAmount] = React.useState<string>('');
   const [totalValue, setTotalValue] = React.useState<number>(0);
+  const [isLoading, setIsLoading] = React.useState(true);
   
   const { balance, buyCrypto, sellCrypto, getCryptoHolding } = useWallet();
 
@@ -88,66 +92,70 @@ export default function Page() {
   const columns: ColumnDef<Crypto>[] = [
     {
       accessorKey: "name",
-      header: "Name",
+      header: "Nom",
       cell: ({ row }) => {
         const id = row.original.id;
         const name = row.original.name;
+        const symbol = row.original.symbol;
+        const rank = row.original.cmc_rank;
 
         return (
-          <div className="flex items-center gap-1">
-            <Image
-              src={`https://s2.coinmarketcap.com/static/img/coins/64x64/${id}.png`}
-              alt={name}
-              width={16}
-              height={16}
-              className="w-4 h-4"
-            />
-            <span className="text-xs truncate">{name}</span>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <div className="absolute inset-0 bg-accent/20 rounded-full blur-sm opacity-70"></div>
+              <Image
+                src={`https://s2.coinmarketcap.com/static/img/coins/64x64/${id}.png`}
+                alt={name}
+                width={32}
+                height={32}
+                className="w-8 h-8 relative z-10"
+              />
+            </div>
+            <div>
+              <div className="font-medium">{name}</div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">{symbol}</span>
+                <Badge variant="outline" className="h-5 text-[10px] px-1 border-muted-foreground/30">
+                  #{rank}
+                </Badge>
+              </div>
+            </div>
           </div>
         );
       },
-      size: 100,
-    },
-    {
-      accessorKey: "symbol",
-      header: "Symbol",
-      cell: ({ row }) => (
-        <div className="text-center text-xs">{row.getValue("symbol")}</div>
-      ),
-      size: 60,
-    },
-    {
-      accessorKey: "cmc_rank",
-      header: "Rank",
-      cell: ({ row }) => (
-        <div className="text-center text-xs">#{row.getValue("cmc_rank")}</div>
-      ),
-      size: 60,
     },
     {
       accessorKey: "price",
       header: ({ column }) => (
-        <Button variant="ghost" onClick={() => column.toggleSorting()}>
-          Price (USD)
-          <ArrowUpDown className="ml-1 h-3 w-3" />
+        <Button 
+          variant="ghost" 
+          className="hover:bg-primary/10" 
+          onClick={() => column.toggleSorting()}
+        >
+          <DollarSign className="h-4 w-4 text-primary mr-1" />
+          Prix (USD)
+          <ArrowUpDown className="ml-1 h-3 w-3 text-muted-foreground" />
         </Button>
       ),
       cell: ({ row }) => {
         const price = row.getValue("price");
         return (
-          <div className="text-center text-xs">
+          <div className="text-right font-medium">
             ${typeof price === "number" ? price.toFixed(2) : "0.00"}
           </div>
         );
       },
-      size: 100,
     },
     {
       accessorKey: "percent_change_1h",
       header: ({ column }) => (
-        <Button variant="ghost" onClick={() => column.toggleSorting()}>
+        <Button 
+          variant="ghost" 
+          className="hover:bg-primary/10" 
+          onClick={() => column.toggleSorting()}
+        >
           1H %
-          <ArrowUpDown className="ml-1 h-3 w-3" />
+          <ArrowUpDown className="ml-1 h-3 w-3 text-muted-foreground" />
         </Button>
       ),
       cell: ({ row }) => {
@@ -155,21 +163,29 @@ export default function Page() {
         const isPositive = typeof change === "number" && change >= 0;
 
         return (
-          <div className="text-center text-xs">
-            <span className={isPositive ? "text-green-600" : "text-red-600"}>
+          <div className="text-right flex items-center justify-end">
+            {isPositive ? (
+              <TrendingUp className="h-3 w-3 mr-1 text-green-500" />
+            ) : (
+              <TrendingDown className="h-3 w-3 mr-1 text-red-500" />
+            )}
+            <span className={isPositive ? "text-green-500" : "text-red-500"}>
               {typeof change === "number" ? `${change.toFixed(2)}%` : "N/A"}
             </span>
           </div>
         );
       },
-      size: 80,
     },
     {
       accessorKey: "percent_change_24h",
       header: ({ column }) => (
-        <Button variant="ghost" onClick={() => column.toggleSorting()}>
+        <Button 
+          variant="ghost" 
+          className="hover:bg-primary/10" 
+          onClick={() => column.toggleSorting()}
+        >
           24H %
-          <ArrowUpDown className="ml-1 h-3 w-3" />
+          <ArrowUpDown className="ml-1 h-3 w-3 text-muted-foreground" />
         </Button>
       ),
       cell: ({ row }) => {
@@ -177,21 +193,29 @@ export default function Page() {
         const isPositive = typeof change === "number" && change >= 0;
 
         return (
-          <div className="text-center text-xs">
-            <span className={isPositive ? "text-green-600" : "text-red-600"}>
+          <div className="text-right flex items-center justify-end">
+            {isPositive ? (
+              <TrendingUp className="h-3 w-3 mr-1 text-green-500" />
+            ) : (
+              <TrendingDown className="h-3 w-3 mr-1 text-red-500" />
+            )}
+            <span className={isPositive ? "text-green-500" : "text-red-500"}>
               {typeof change === "number" ? `${change.toFixed(2)}%` : "N/A"}
             </span>
           </div>
         );
       },
-      size: 80,
     },
     {
       accessorKey: "percent_change_7d",
       header: ({ column }) => (
-        <Button variant="ghost" onClick={() => column.toggleSorting()}>
-          7D %
-          <ArrowUpDown className="ml-1 h-3 w-3" />
+        <Button 
+          variant="ghost" 
+          className="hover:bg-primary/10" 
+          onClick={() => column.toggleSorting()}
+        >
+          7J %
+          <ArrowUpDown className="ml-1 h-3 w-3 text-muted-foreground" />
         </Button>
       ),
       cell: ({ row }) => {
@@ -199,70 +223,54 @@ export default function Page() {
         const isPositive = typeof change === "number" && change >= 0;
 
         return (
-          <div className="text-center text-xs">
-            <span className={isPositive ? "text-green-600" : "text-red-600"}>
+          <div className="text-right flex items-center justify-end">
+            {isPositive ? (
+              <TrendingUp className="h-3 w-3 mr-1 text-green-500" />
+            ) : (
+              <TrendingDown className="h-3 w-3 mr-1 text-red-500" />
+            )}
+            <span className={isPositive ? "text-green-500" : "text-red-500"}>
               {typeof change === "number" ? `${change.toFixed(2)}%` : "N/A"}
             </span>
           </div>
         );
       },
-      size: 80,
-    },
-    {
-      accessorKey: "market_cap",
-      header: ({ column }) => (
-        <Button variant="ghost" onClick={() => column.toggleSorting()}>
-          Mkt Cap
-          <ArrowUpDown className="ml-1 h-3 w-3" />
-        </Button>
-      ),
-      cell: ({ row }) => (
-        <div className="text-center text-xs">
-          ${row.getValue("market_cap")?.toLocaleString() || "0"}
-        </div>
-      ),
-      size: 100,
-    },
-    {
-      accessorKey: "volume_24h",
-      header: ({ column }) => (
-        <Button variant="ghost" onClick={() => column.toggleSorting()}>
-          24H Vol
-          <ArrowUpDown className="ml-1 h-3 w-3" />
-        </Button>
-      ),
-      cell: ({ row }) => (
-        <div className="text-center text-xs">
-          ${row.getValue("volume_24h")?.toLocaleString() || "0"}
-        </div>
-      ),
-      size: 100,
     },
     {
       id: "holdings",
-      header: "Holdings",
+      header: "Vos Actifs",
       cell: ({ row }) => {
         const crypto = row.original;
         const holding = getCryptoHolding(crypto.id);
         return (
-          <div className="text-center text-xs">
-            {holding ? `${holding.amount.toFixed(6)} ${crypto.symbol}` : "-"}
+          <div className="text-right">
+            {holding ? (
+              <div>
+                <div className="font-medium">{holding.amount.toFixed(6)} {crypto.symbol}</div>
+                <div className="text-xs text-muted-foreground">
+                  (${(holding.amount * crypto.price).toFixed(2)})
+                </div>
+              </div>
+            ) : (
+              <span className="text-muted-foreground">-</span>
+            )}
           </div>
         );
       },
-      size: 100,
     },
     {
       id: "actions",
       header: "Actions",
       cell: ({ row }) => {
         const crypto = row.original;
+        const holding = getCryptoHolding(crypto.id);
+        
         return (
-          <div className="flex justify-center space-x-1">
+          <div className="flex justify-end gap-2">
             <Button 
               variant="ghost" 
               size="icon" 
-              className="h-8 w-8 text-green-600"
+              className="h-8 w-8 rounded-full bg-green-500/10 text-green-500 hover:bg-green-500/20 hover:text-green-600"
               onClick={() => openTradeModal('buy', crypto)}
             >
               <Plus className="h-4 w-4" />
@@ -270,8 +278,8 @@ export default function Page() {
             <Button 
               variant="ghost" 
               size="icon" 
-              className="h-8 w-8 text-red-600"
-              disabled={!getCryptoHolding(crypto.id)}
+              className="h-8 w-8 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500/20 hover:text-red-600"
+              disabled={!holding}
               onClick={() => openTradeModal('sell', crypto)}
             >
               <Minus className="h-4 w-4" />
@@ -279,15 +287,33 @@ export default function Page() {
           </div>
         );
       },
-      size: 80,
     },
   ];
 
   React.useEffect(() => {
     async function fetchData() {
+      setIsLoading(true);
       try {
         const data = await fetchLatestCryptocurrencyListings();
-        const formattedData = data.map((crypto: any) => ({
+        
+        interface CryptoApiResponse {
+          id: number;
+          name: string;
+          symbol: string;
+          cmc_rank: number;
+          quote?: {
+            USD?: {
+              price?: number;
+              percent_change_1h?: number;
+              percent_change_24h?: number;
+              percent_change_7d?: number;
+              market_cap?: number;
+              volume_24h?: number;
+            };
+          };
+        }
+        
+        const formattedData = data.map((crypto: CryptoApiResponse) => ({
           id: crypto.id,
           name: crypto.name,
           symbol: crypto.symbol,
@@ -302,6 +328,13 @@ export default function Page() {
         setCryptos(formattedData);
       } catch (error) {
         console.error("Error loading cryptocurrencies:", error);
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les cryptomonnaies",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
       }
     }
 
@@ -402,103 +435,150 @@ export default function Page() {
       sorting,
       columnFilters,
     },
+    initialState: {
+      pagination: {
+        pageSize: 10,
+      },
+    },
   });
 
   return (
-    <div className="container mx-auto py-4">
-      <h1 className="text-2xl font-bold mb-4">Cryptomonnaies</h1>
-      
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex w-full max-w-sm items-center space-x-2">
-          <Input
-            placeholder="Rechercher une crypto..."
-            value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
-            onChange={(event) =>
-              table.getColumn("name")?.setFilterValue(event.target.value)
-            }
-            className="max-w-sm"
-          />
-        </div>
-        <div className="text-sm text-muted-foreground">
-          Balance: <span className="font-medium">${balance.toLocaleString()}</span>
+    <div className="container mx-auto py-6 animate-fade-in">
+      {/* Hero section - Improved design without balance display */}
+      <div className="mb-12 relative overflow-hidden rounded-2xl bg-gradient-to-br from-background to-background/50 border border-border/30 p-8 shadow-lg">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-accent/20 rounded-full blur-3xl -z-10 opacity-70 animate-pulse-slow"></div>
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-primary/20 rounded-full blur-3xl -z-10 opacity-70 animate-pulse-slow"></div>
+        
+        <div className="max-w-3xl mx-auto text-center">
+          <h1 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            Marché des Cryptomonnaies
+          </h1>
+          <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
+            Explorez, analysez et investissez dans les cryptomonnaies les plus populaires. Suivez leurs performances et optimisez votre portefeuille.
+          </p>
         </div>
       </div>
       
-      <div className="rounded-md border bg-card">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  return (
-                    <TableHead key={header.id} style={{ width: `${header.getSize()}px` }}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </TableHead>
-                  );
-                })}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
+      {/* Search and filter */}
+      <div className="mb-6 glass p-4 rounded-lg animate-slide-up">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="relative max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher une crypto..."
+              value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
+              onChange={(event) =>
+                table.getColumn("name")?.setFilterValue(event.target.value)
+              }
+              className="pl-9 bg-background/50 border-accent/20 focus-visible:ring-accent"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground hidden md:inline">
+              Affichage de {table.getRowModel().rows.length} cryptomonnaies
+            </span>
+          </div>
+        </div>
+      </div>
+      
+      {/* Table */}
+      <div className="rounded-xl border border-border/50 bg-card/30 backdrop-blur-sm overflow-hidden animate-slide-up transition-all shadow-sm">
+        {isLoading ? (
+          <div className="flex items-center justify-center h-72">
+            <div className="flex flex-col items-center">
+              <div className="relative">
+                <div className="h-16 w-16 rounded-full border-4 border-t-primary border-r-transparent border-l-transparent border-b-transparent animate-spin"></div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Zap className="h-6 w-6 text-primary" />
+                </div>
+              </div>
+              <p className="mt-4 text-muted-foreground">Chargement des cryptomonnaies...</p>
+            </div>
+          </div>
+        ) : (
+          <Table className="data-table">
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id} className="hover:bg-transparent border-b border-border/50">
+                  {headerGroup.headers.map((header) => {
+                    return (
+                      <TableHead key={header.id} className="py-4">
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                      </TableHead>
+                    );
+                  })}
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
-                  No results.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                    className="hover:bg-primary/5 transition-colors"
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id} className="py-4">
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-24 text-center"
+                  >
+                    Aucun résultat.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        )}
       </div>
       
+      {/* Pagination */}
       <div className="flex items-center justify-end space-x-2 py-4">
         <Button
           variant="outline"
           size="sm"
           onClick={() => table.previousPage()}
           disabled={!table.getCanPreviousPage()}
+          className="border-accent/20 hover:bg-accent/5"
         >
-          Previous
+          Précédent
         </Button>
+        <div className="text-sm text-muted-foreground">
+          Page {table.getState().pagination.pageIndex + 1} sur{" "}
+          {table.getPageCount()}
+        </div>
         <Button
           variant="outline"
           size="sm"
           onClick={() => table.nextPage()}
           disabled={!table.getCanNextPage()}
+          className="border-accent/20 hover:bg-accent/5"
         >
-          Next
+          Suivant
         </Button>
       </div>
 
       {/* Trade Modal */}
       <Dialog open={isTradeModalOpen} onOpenChange={setIsTradeModalOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] glass animate-fade-in">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="text-xl font-bold">
               {tradeType === 'buy' ? 'Acheter' : 'Vendre'} {selectedCrypto?.symbol}
             </DialogTitle>
             <DialogDescription>
@@ -507,33 +587,37 @@ export default function Page() {
                 : 'Entrez le montant que vous souhaitez vendre.'}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="flex items-center gap-4">
-              <Image
-                src={`https://s2.coinmarketcap.com/static/img/coins/64x64/${selectedCrypto?.id}.png`}
-                alt={selectedCrypto?.name || ''}
-                width={32}
-                height={32}
-                className="mr-2"
-              />
+          <div className="grid gap-6 py-4">
+            <div className="flex items-center gap-4 p-4 bg-card/50 rounded-lg">
+              <div className="relative">
+                <div className="absolute inset-0 bg-accent/20 rounded-full blur-sm opacity-70"></div>
+                <Image
+                  src={`https://s2.coinmarketcap.com/static/img/coins/64x64/${selectedCrypto?.id}.png`}
+                  alt={selectedCrypto?.name || ''}
+                  width={48}
+                  height={48}
+                  className="relative z-10"
+                />
+              </div>
               <div>
-                <p className="font-medium">{selectedCrypto?.name}</p>
-                <p className="text-sm text-muted-foreground">
+                <p className="font-medium text-lg">{selectedCrypto?.name}</p>
+                <p className="text-sm text-muted-foreground flex items-center">
+                  <DollarSign className="h-3 w-3 mr-1" />
                   Prix actuel: ${selectedCrypto?.price.toFixed(2)}
                 </p>
               </div>
             </div>
 
             {tradeType === 'sell' && (
-              <div className="grid grid-cols-2 items-center gap-4">
-                <Label htmlFor="holding">Vous possédez</Label>
-                <div className="text-right">
+              <div className="grid grid-cols-2 items-center gap-4 p-3 bg-card/50 rounded-lg">
+                <Label htmlFor="holding" className="text-muted-foreground">Vous possédez</Label>
+                <div className="text-right font-medium">
                   {getCryptoHolding(selectedCrypto?.id || 0)?.amount.toFixed(6) || 0} {selectedCrypto?.symbol}
                 </div>
               </div>
             )}
 
-            <div className="grid grid-cols-2 items-center gap-4">
+            <div className="space-y-2">
               <Label htmlFor="amount">Quantité</Label>
               <Input
                 id="amount"
@@ -543,29 +627,31 @@ export default function Page() {
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder={`Quantité de ${selectedCrypto?.symbol}`}
+                className="border-accent/20 focus-visible:ring-accent"
               />
             </div>
 
-            <div className="grid grid-cols-2 items-center gap-4">
-              <Label htmlFor="total">Valeur Totale</Label>
-              <div className="text-right font-medium">${totalValue.toFixed(2)}</div>
+            <div className="grid grid-cols-2 items-center gap-4 p-3 bg-primary/5 rounded-lg">
+              <Label htmlFor="total" className="text-muted-foreground">Valeur Totale</Label>
+              <div className="text-right font-medium text-lg">${totalValue.toFixed(2)}</div>
             </div>
 
             {tradeType === 'buy' && (
-              <div className="grid grid-cols-2 items-center gap-4">
-                <Label htmlFor="balance">Votre balance</Label>
-                <div className="text-right">${balance.toFixed(2)}</div>
+              <div className="grid grid-cols-2 items-center gap-4 p-3 bg-card/50 rounded-lg">
+                <Label htmlFor="balance" className="text-muted-foreground">Votre balance</Label>
+                <div className="text-right font-medium">${balance.toFixed(2)}</div>
               </div>
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsTradeModalOpen(false)}>
+            <Button variant="outline" onClick={() => setIsTradeModalOpen(false)} className="border-accent/20">
               Annuler
             </Button>
             <Button 
               onClick={executeTrade}
               disabled={!amount || parseFloat(amount) <= 0 || totalValue <= 0}
               variant={tradeType === 'buy' ? 'default' : 'destructive'}
+              className={tradeType === 'buy' ? 'bg-gradient-to-r from-primary to-accent hover:opacity-90' : ''}
             >
               {tradeType === 'buy' ? 'Acheter' : 'Vendre'}
             </Button>

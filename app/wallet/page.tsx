@@ -1,15 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { 
   ArrowDownIcon, 
   ArrowUpIcon, 
   AreaChart, 
-  ChevronRight, 
-  DollarSign,
-  HistoryIcon
+  DollarSign
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -26,8 +24,7 @@ import {
 
 export default function WalletPage() {
   const { balance, holdings, transactions } = useWallet();
-  const [activeTab, setActiveTab] = useState("overview");
-
+  
   // Calculate total portfolio value
   const portfolioValue = holdings.reduce(
     (total, holding) => total + holding.amount * holding.purchasePrice,
@@ -85,7 +82,7 @@ export default function WalletPage() {
           <CardContent>
             <div className="text-2xl font-bold">${balance.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              Fonds disponibles pour l'investissement
+              Fonds disponibles pour l&apos;investissement
             </p>
           </CardContent>
         </Card>
@@ -179,7 +176,7 @@ export default function WalletPage() {
             <CardContent>
               {holdings.length === 0 ? (
                 <div className="text-center py-6 text-muted-foreground">
-                  <p>Vous n'avez pas encore de cryptomonnaies.</p>
+                  <p>Vous n&apos;avez pas encore de cryptomonnaies.</p>
                   <Link href="/" className="text-primary hover:underline mt-2 inline-block">
                     Commencez à investir
                   </Link>
@@ -248,10 +245,10 @@ export default function WalletPage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-medium">
-                          {transaction.type === 'buy' ? '-' : '+'}${transaction.value.toFixed(2)}
+                        <p className="font-medium">{transaction.amount.toFixed(6)} {transaction.cryptoSymbol}</p>
+                        <p className={`text-sm ${transaction.type === 'buy' ? 'text-red-500 dark:text-red-300' : 'text-green-500 dark:text-green-300'}`}>
+                          {transaction.type === 'buy' ? '-' : '+'}${(transaction.amount * transaction.price).toFixed(2)}
                         </p>
-                        <p className="text-sm">{transaction.amount.toFixed(6)} {transaction.cryptoSymbol}</p>
                       </div>
                     </div>
                   ))}
