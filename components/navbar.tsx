@@ -2,58 +2,54 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useTheme } from "next-themes";
+import { Moon, Sun, Wallet } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useWallet } from "@/lib/walletContext";
+
 export function NavigationMenuDemo() {
-  const [isDarkMode, setIsDarkMode] = useState(false);
-
-  // Synchroniser l'état du thème avec la classe du document
-  useEffect(() => {
-    if (typeof document !== "undefined") {
-      const isDark = document.documentElement.classList.contains("dark");
-      setIsDarkMode(isDark);
-    }
-  }, []);
-
-  const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode);
-    if (typeof document !== "undefined") {
-      document.documentElement.classList.toggle("dark", !isDarkMode);
-    }
-  };
+  const { theme, setTheme } = useTheme();
+  const { balance } = useWallet();
 
   return (
-    <div>
-      {/* Navbar principale */}
-      <div className="flex items-center justify-center w-full px-4 mt-2 relative">
-        {/* Logo centré et encore agrandi */}
-        <div className="flex items-center">
+    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur">
+      <div className="container flex h-16 items-center justify-between px-4">
+        {/* Logo */}
+        <Link href="/" className="flex items-center">
           <Image
             src="/COINIKO.gif"
             alt="Logo"
-            width={150} // Largeur augmentée
-            height={60} // Hauteur augmentée
+            width={150}
+            height={60}
             priority
             className="object-contain"
           />
+        </Link>
+
+        {/* Navigation */}
+        <div className="flex items-center gap-4">
+          {/* Wallet Button */}
+          <Link href="/wallet">
+            <Button variant="outline" className="flex items-center gap-2">
+              <Wallet size={18} />
+              <span className="hidden sm:inline">${balance.toLocaleString()}</span>
+            </Button>
+          </Link>
+
+          {/* Theme Switcher */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            className="rounded-full"
+          >
+            <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+            <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+            <span className="sr-only">Toggle theme</span>
+          </Button>
         </div>
-
-        {/* Bouton pour changer le thème, moderne */}
-        <button
-          onClick={toggleTheme}
-          className="absolute right-4 px-3 py-2 rounded-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-center shadow-md hover:shadow-lg transition-all"
-        >
-          <Image
-            src={isDarkMode ? "/sun-icon.png" : "/moon-icon.png"}
-            alt={isDarkMode ? "Light Mode" : "Dark Mode"}
-            width={24}
-            height={24}
-            className="object-contain"
-          />
-        </button>
       </div>
-
-      {/* Ligne de séparation */}
-      <div className="w-full h-[1px] bg-gray-300 dark:bg-gray-700 mt-2"></div>
-    </div>
+    </header>
   );
 }
