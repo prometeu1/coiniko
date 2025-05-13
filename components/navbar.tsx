@@ -10,15 +10,29 @@ import {
   Wallet, 
   Home,
   Menu,
-  X
+  X,
+  LogIn,
+  User,
+  LogOut,
+  Trophy
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@/lib/walletContext";
 import { cn } from "@/lib/utils";
+import { useSession, signIn, signOut } from "next-auth/react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-export function NavigationMenuDemo() {
+export default function Navbar() {
   const { theme, setTheme } = useTheme();
   const { balance } = useWallet();
+  const { data: session, status } = useSession();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [isScrolled, setIsScrolled] = React.useState(false);
 
@@ -31,6 +45,17 @@ export function NavigationMenuDemo() {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // Obtenir les initiales d'un nom pour l'avatar fallback
+  const getInitials = (name: string | null | undefined) => {
+    if (!name) return '?';
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
+  };
 
   return (
     <header className={cn(
@@ -52,6 +77,7 @@ export function NavigationMenuDemo() {
                 width={150}
                 height={60}
                 priority
+                unoptimized
                 className="object-contain relative z-10"
               />
             </Link>
@@ -73,21 +99,32 @@ export function NavigationMenuDemo() {
                   <span>Portefeuille</span>
                 </Button>
               </Link>
+
+              <Link href="/rankings">
+                <Button variant="ghost" className="flex items-center gap-2 rounded-lg px-5 hover:bg-primary/10">
+                  <Trophy size={18} className="text-primary" />
+                  <span>Classement</span>
+                </Button>
+              </Link>
             </nav>
           </div>
 
           {/* Section droite - Actions */}
           <div className="w-1/3 flex justify-end items-center gap-3">
-            {/* Wallet balance avec animation de pulse */}
-            <Link href="/wallet">
-              <Button 
-                variant="outline" 
-                className="hidden sm:flex items-center gap-2 border border-accent/50 hover:border-accent/80 hover:bg-accent/5 neon-border"
-              >
-                <Wallet size={18} className="text-accent animate-pulse-slow" />
-                <span className="font-medium">${balance.toLocaleString()}</span>
-              </Button>
-            </Link>
+            {status === "authenticated" && (
+              <>
+                {/* Wallet balance avec animation de pulse */}
+                <Link href="/wallet">
+                  <Button 
+                    variant="outline" 
+                    className="hidden sm:flex items-center gap-2 border border-accent/50 hover:border-accent/80 hover:bg-accent/5 neon-border"
+                  >
+                    <Wallet size={18} className="text-accent animate-pulse-slow" />
+                    <span className="font-medium">${balance.toLocaleString()}</span>
+                  </Button>
+                </Link>
+              </>
+            )}
 
             {/* Bouton pour changer de thème */}
             <Button
@@ -100,6 +137,69 @@ export function NavigationMenuDemo() {
               <Sun className="h-5 w-5 rotate-0 scale-100 text-accent transition-all dark:-rotate-90 dark:scale-0" />
               <Moon className="absolute h-5 w-5 rotate-90 scale-0 text-accent transition-all dark:rotate-0 dark:scale-100" />
             </Button>
+
+            {/* Authentification */}
+            {status === "loading" ? (
+              <Button variant="ghost" size="icon" disabled className="h-9 w-9 rounded-full">
+                <div className="h-5 w-5 animate-pulse bg-primary/20 rounded-full"></div>
+              </Button>
+            ) : status === "authenticated" ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                    <Avatar className="h-9 w-9">
+                      <AvatarImage src={session.user?.image || undefined} alt={session.user?.name || "Utilisateur"} />
+                      <AvatarFallback className="bg-primary/10">
+                        {getInitials(session.user?.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <div className="flex items-center justify-start gap-2 p-2">
+                    <div className="flex flex-col space-y-1 leading-none">
+                      {session.user?.name && <p className="font-medium">{session.user.name}</p>}
+                      {session.user?.email && (
+                        <p className="w-48 truncate text-sm text-muted-foreground">
+                          {session.user.email}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/wallet" className="cursor-pointer">
+                      <Wallet className="mr-2 h-4 w-4" />
+                      <span>Portefeuille</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/rankings" className="cursor-pointer">
+                      <Trophy className="mr-2 h-4 w-4" />
+                      <span>Classement</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="cursor-pointer text-destructive focus:text-destructive"
+                    onClick={() => signOut()}
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Se déconnecter</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => signIn()}
+                className="gap-1"
+              >
+                <LogIn className="h-4 w-4" />
+                <span>Connexion</span>
+              </Button>
+            )}
 
             {/* Menu mobile */}
             <Button
@@ -134,11 +234,34 @@ export function NavigationMenuDemo() {
               <Button variant="ghost" className="w-full justify-start gap-2">
                 <Wallet size={18} className="text-primary" />
                 <span>Portefeuille</span>
-                <span className="ml-auto text-sm font-medium text-accent">
-                  ${balance.toLocaleString()}
-                </span>
+                {status === "authenticated" && (
+                  <span className="ml-auto text-sm font-medium text-accent">
+                    ${balance.toLocaleString()}
+                  </span>
+                )}
               </Button>
             </Link>
+
+            <Link href="/rankings" onClick={() => setIsMobileMenuOpen(false)}>
+              <Button variant="ghost" className="w-full justify-start gap-2">
+                <Trophy size={18} className="text-primary" />
+                <span>Classement</span>
+              </Button>
+            </Link>
+
+            {status === "unauthenticated" && (
+              <Button
+                variant="default"
+                className="w-full justify-start gap-2 mt-2"
+                onClick={() => {
+                  signIn();
+                  setIsMobileMenuOpen(false);
+                }}
+              >
+                <LogIn size={18} className="text-primary-foreground" />
+                <span>Connexion</span>
+              </Button>
+            )}
           </nav>
         </div>
       )}

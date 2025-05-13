@@ -1,49 +1,54 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useSession } from 'next-auth/react';
+import { useToast } from "@/components/ui/use-toast";
 
 // Types
 export type CryptoHolding = {
-  id: number;
-  name: string;
-  symbol: string;
+  id: string;
+  cryptoId: string;
+  name?: string;
+  symbol?: string;
   amount: number;
-  purchasePrice: number;
-  totalInvested: number;
+  averageBuyPrice: number;
+  totalValue?: number;
 };
 
 export type Transaction = {
   id: string;
-  cryptoId: number;
-  cryptoName: string;
-  cryptoSymbol: string;
+  cryptoId: string;
+  cryptoName?: string;
+  cryptoSymbol?: string;
   type: 'buy' | 'sell';
   amount: number;
   price: number;
-  value: number;
-  timestamp: number;
+  value?: number;
+  timestamp: Date;
 };
 
 type WalletContextType = {
   balance: number;
   holdings: CryptoHolding[];
   transactions: Transaction[];
-  addFunds: (amount: number) => void;
+  addFunds: (amount: number) => Promise<boolean>;
   buyCrypto: (
-    cryptoId: number,
+    cryptoId: string,
     cryptoName: string,
     cryptoSymbol: string,
     amount: number,
     price: number
-  ) => boolean;
+  ) => Promise<boolean>;
   sellCrypto: (
-    cryptoId: number,
+    cryptoId: string,
     cryptoName: string,
     cryptoSymbol: string,
     amount: number,
     price: number
-  ) => boolean;
-  getCryptoHolding: (cryptoId: number) => CryptoHolding | undefined;
+  ) => Promise<boolean>;
+  getCryptoHolding: (cryptoId: string) => CryptoHolding | undefined;
+  isLoading: boolean;
+  refreshWallet: () => Promise<void>;
 };
 
 const WalletContext = createContext<WalletContextType | null>(null);
@@ -57,166 +62,257 @@ export const useWallet = () => {
 };
 
 export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // Initial state with $10,000 starting balance
-  const [balance, setBalance] = useState<number>(10000);
+  const { data: session, status } = useSession();
+  const { toast } = useToast();
+  const [balance, setBalance] = useState<number>(0);
   const [holdings, setHoldings] = useState<CryptoHolding[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Load data from localStorage on component mount
+  // Fetch wallet data when session changes
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedBalance = localStorage.getItem('wallet_balance');
-      const savedHoldings = localStorage.getItem('wallet_holdings');
-      const savedTransactions = localStorage.getItem('wallet_transactions');
-
-      if (savedBalance) setBalance(parseFloat(savedBalance));
-      if (savedHoldings) setHoldings(JSON.parse(savedHoldings));
-      if (savedTransactions) setTransactions(JSON.parse(savedTransactions));
+    if (status === 'authenticated' && session) {
+      refreshWallet();
+    } else if (status !== 'loading') {
+      setIsLoading(false);
     }
-  }, []);
+  }, [session, status]);
 
-  // Save data to localStorage whenever it changes
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('wallet_balance', balance.toString());
-      localStorage.setItem('wallet_holdings', JSON.stringify(holdings));
-      localStorage.setItem('wallet_transactions', JSON.stringify(transactions));
+  // Refresh wallet data from API
+  const refreshWallet = async () => {
+    if (status !== 'authenticated' || !session) return;
+    
+    setIsLoading(true);
+    
+    try {
+      // Fetch balance
+      const balanceRes = await fetch('/api/wallet/balance');
+      if (balanceRes.ok) {
+        const data = await balanceRes.json();
+        setBalance(parseFloat(data.balance));
+      }
+
+      // Fetch holdings
+      const holdingsRes = await fetch('/api/wallet/holdings');
+      if (holdingsRes.ok) {
+        const data = await holdingsRes.json();
+        // Convert from DB format to app format
+        const formattedHoldings = data.holdings.map((h: any) => ({
+          id: h.id,
+          cryptoId: h.crypto_id,
+          amount: parseFloat(h.amount.toString()),
+          averageBuyPrice: parseFloat(h.average_buy_price.toString()),
+        }));
+        setHoldings(formattedHoldings);
+      }
+
+      // Fetch transactions
+      const transactionsRes = await fetch('/api/wallet/transactions');
+      if (transactionsRes.ok) {
+        const data = await transactionsRes.json();
+        // Convert from DB format to app format
+        const formattedTransactions = data.transactions.map((t: any) => ({
+          id: t.id,
+          cryptoId: t.crypto_id,
+          type: t.transaction_type,
+          amount: parseFloat(t.amount.toString()),
+          price: parseFloat(t.price_at_transaction.toString()),
+          timestamp: new Date(t.timestamp),
+        }));
+        setTransactions(formattedTransactions);
+      }
+    } catch (error) {
+      console.error('Error refreshing wallet data:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de récupérer les données du portefeuille",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
-  }, [balance, holdings, transactions]);
+  };
 
   // Add funds to wallet
-  const addFunds = (amount: number) => {
-    setBalance(prevBalance => prevBalance + amount);
+  const addFunds = async (amount: number): Promise<boolean> => {
+    if (status !== 'authenticated' || !session) {
+      toast({
+        title: "Non connecté",
+        description: "Vous devez être connecté pour ajouter des fonds",
+        variant: "destructive",
+      });
+      return false;
+    }
+    
+    try {
+      const response = await fetch('/api/wallet/balance', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ amount }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        toast({
+          title: "Erreur",
+          description: errorData.error || "Impossible d'ajouter des fonds",
+          variant: "destructive",
+        });
+        return false;
+      }
+      
+      const data = await response.json();
+      setBalance(parseFloat(data.balance.toString()));
+      
+      toast({
+        title: "Succès",
+        description: `${amount}$ ont été ajoutés à votre portefeuille`,
+        variant: "default",
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Error adding funds:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'ajouter des fonds",
+        variant: "destructive",
+      });
+      return false;
+    }
   };
 
   // Find a crypto holding by ID
-  const getCryptoHolding = (cryptoId: number) => {
-    return holdings.find(holding => holding.id === cryptoId);
+  const getCryptoHolding = (cryptoId: string) => {
+    return holdings.find(holding => holding.cryptoId === cryptoId);
   };
 
   // Buy cryptocurrency
-  const buyCrypto = (
-    cryptoId: number,
+  const buyCrypto = async (
+    cryptoId: string,
     cryptoName: string,
     cryptoSymbol: string,
     amount: number,
     price: number
-  ): boolean => {
-    const totalCost = amount * price;
-    
-    // Check if user has enough balance
-    if (totalCost > balance) {
+  ): Promise<boolean> => {
+    if (status !== 'authenticated' || !session) {
+      toast({
+        title: "Non connecté",
+        description: "Vous devez être connecté pour acheter",
+        variant: "destructive",
+      });
       return false;
     }
-
-    // Create a transaction record
-    const newTransaction: Transaction = {
-      id: Date.now().toString(),
-      cryptoId,
-      cryptoName,
-      cryptoSymbol,
-      type: 'buy',
-      amount,
-      price,
-      value: totalCost,
-      timestamp: Date.now()
-    };
-
-    // Update holdings
-    const existingHolding = holdings.find(h => h.id === cryptoId);
     
-    if (existingHolding) {
-      // Update existing holding
-      const updatedHoldings = holdings.map(holding => {
-        if (holding.id === cryptoId) {
-          const newAmount = holding.amount + amount;
-          const newTotalInvested = holding.totalInvested + totalCost;
-          const newPurchasePrice = newTotalInvested / newAmount; // Average purchase price
-          
-          return {
-            ...holding,
-            amount: newAmount,
-            purchasePrice: newPurchasePrice,
-            totalInvested: newTotalInvested
-          };
-        }
-        return holding;
+    try {
+      const response = await fetch('/api/wallet/holdings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          crypto_id: cryptoId,
+          crypto_name: cryptoName,
+          crypto_symbol: cryptoSymbol,
+          amount,
+          price,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        toast({
+          title: "Erreur d'achat",
+          description: errorData.error || "Impossible d'acheter cette crypto",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      const data = await response.json();
+      toast({
+        title: "Achat réussi",
+        description: `Vous avez acheté ${amount} ${cryptoSymbol}`,
+        variant: "default",
       });
       
-      setHoldings(updatedHoldings);
-    } else {
-      // Add new holding
-      const newHolding: CryptoHolding = {
-        id: cryptoId,
-        name: cryptoName,
-        symbol: cryptoSymbol,
-        amount,
-        purchasePrice: price,
-        totalInvested: totalCost
-      };
-      
-      setHoldings([...holdings, newHolding]);
+      // Refresh wallet data after successful purchase
+      await refreshWallet();
+      return true;
+    } catch (error) {
+      console.error('Error buying crypto:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'acheter cette crypto",
+        variant: "destructive",
+      });
+      return false;
     }
-
-    // Update balance and add transaction
-    setBalance(prevBalance => prevBalance - totalCost);
-    setTransactions(prev => [newTransaction, ...prev]);
-    
-    return true;
   };
 
   // Sell cryptocurrency
-  const sellCrypto = (
-    cryptoId: number,
+  const sellCrypto = async (
+    cryptoId: string,
     cryptoName: string,
     cryptoSymbol: string,
     amount: number,
     price: number
-  ): boolean => {
-    const existingHolding = holdings.find(h => h.id === cryptoId);
-    
-    // Check if user has enough of this cryptocurrency
-    if (!existingHolding || existingHolding.amount < amount) {
+  ): Promise<boolean> => {
+    if (status !== 'authenticated' || !session) {
+      toast({
+        title: "Non connecté",
+        description: "Vous devez être connecté pour vendre",
+        variant: "destructive",
+      });
       return false;
     }
+    
+    try {
+      const response = await fetch('/api/wallet/transactions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          crypto_id: cryptoId,
+          crypto_name: cryptoName,
+          crypto_symbol: cryptoSymbol,
+          amount,
+          price,
+        }),
+      });
 
-    const saleValue = amount * price;
-
-    // Create a transaction record
-    const newTransaction: Transaction = {
-      id: Date.now().toString(),
-      cryptoId,
-      cryptoName,
-      cryptoSymbol,
-      type: 'sell',
-      amount,
-      price,
-      value: saleValue,
-      timestamp: Date.now()
-    };
-
-    // Update holdings
-    const updatedHoldings = holdings.map(holding => {
-      if (holding.id === cryptoId) {
-        const newAmount = holding.amount - amount;
-        const proportionSold = amount / holding.amount;
-        const soldInvestment = holding.totalInvested * proportionSold;
-        
-        return {
-          ...holding,
-          amount: newAmount,
-          totalInvested: holding.totalInvested - soldInvestment
-        };
+      if (!response.ok) {
+        const errorData = await response.json();
+        toast({
+          title: "Erreur de vente",
+          description: errorData.error || "Impossible de vendre cette crypto",
+          variant: "destructive",
+        });
+        return false;
       }
-      return holding;
-    }).filter(holding => holding.amount > 0); // Remove holdings with zero amount
-    
-    // Update balance and add transaction
-    setBalance(prevBalance => prevBalance + saleValue);
-    setHoldings(updatedHoldings);
-    setTransactions(prev => [newTransaction, ...prev]);
-    
-    return true;
+
+      const data = await response.json();
+      toast({
+        title: "Vente réussie",
+        description: `Vous avez vendu ${amount} ${cryptoSymbol}`,
+        variant: "default",
+      });
+      
+      // Refresh wallet data after successful sale
+      await refreshWallet();
+      return true;
+    } catch (error) {
+      console.error('Error selling crypto:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de vendre cette crypto",
+        variant: "destructive",
+      });
+      return false;
+    }
   };
 
   const value = {
@@ -226,7 +322,9 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     addFunds,
     buyCrypto,
     sellCrypto,
-    getCryptoHolding
+    getCryptoHolding,
+    isLoading,
+    refreshWallet
   };
 
   return (

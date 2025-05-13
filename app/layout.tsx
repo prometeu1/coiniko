@@ -1,24 +1,15 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
-import { NavigationMenuDemo } from "@/components/navbar";
-import { WalletProvider } from "@/lib/walletContext";
-import { ThemeProvider } from "@/components/theme-provider";
-import { Toaster } from "@/components/toaster";
+import Navbar from "@/components/navbar";
+import { Toaster } from "@/components/ui/toaster";
+import { Providers } from "@/components/providers";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Coiniko",
-  description: "Crypto investment platform",
+  description: "Application de suivi des prix crypto",
 };
 
 export default function RootLayout({
@@ -27,26 +18,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen`}
-      >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <WalletProvider>
-            <div className="flex flex-col min-h-screen">
-              <NavigationMenuDemo />
-              <main className="flex-grow py-4 px-4 md:px-8">
-                {children}
-              </main>
-            </div>
-            <Toaster />
-          </WalletProvider>
-        </ThemeProvider>
+    <html lang="fr" suppressHydrationWarning>
+      <body className={inter.className}>
+        <Providers>
+          <div className="flex flex-col min-h-screen">
+            <Navbar />
+            <main className="flex-grow">{children}</main>
+          </div>
+          <Toaster />
+        </Providers>
       </body>
     </html>
   );
