@@ -75,6 +75,8 @@ model holdings {
   id                String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   portfolio_id      String     @db.Uuid
   crypto_id         String
+  crypto_name       String?
+  crypto_symbol     String?
   amount            Decimal    @db.Decimal
   average_buy_price Decimal    @db.Decimal
   portfolio         portfolios @relation(fields: [portfolio_id], references: [id], onDelete: Cascade)
@@ -86,6 +88,8 @@ model transactions {
   id                   String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   portfolio_id         String     @db.Uuid
   crypto_id            String
+  crypto_name          String?
+  crypto_symbol        String?
   amount               Decimal    @db.Decimal
   price_at_transaction Decimal    @db.Decimal
   transaction_type     String

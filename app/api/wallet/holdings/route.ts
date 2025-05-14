@@ -3,6 +3,71 @@ import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/db';
 import { authOptions } from '../../auth/[...nextauth]/route';
 
+// Fonction utilitaire pour mettre à jour le classement
+async function updateRanking(userId: string) {
+  try {
+    // Récupérer le portefeuille et calculer la valeur totale
+    const portfolio = await prisma.portfolios.findFirst({
+      where: { user_id: userId },
+      include: {
+        holdings: true,
+      },
+    });
+
+    if (!portfolio) return;
+
+    // Pour un classement réel, il faudrait récupérer la valeur actuelle des cryptos
+    // Ici, on se base sur le prix d'achat comme simplification
+    let totalValue = parseFloat(portfolio.balance.toString());
+    
+    for (const holding of portfolio.holdings) {
+      const holdingValue = parseFloat(holding.amount.toString()) * parseFloat(holding.average_buy_price.toString());
+      totalValue += holdingValue;
+    }
+
+    // Vérifier si un classement existe déjà
+    const existingRanking = await prisma.rankings.findFirst({
+      where: { user_id: userId },
+    });
+
+    if (existingRanking) {
+      // Mettre à jour le classement existant
+      await prisma.rankings.update({
+        where: { id: existingRanking.id },
+        data: {
+          total_value: totalValue,
+          last_updated: new Date(),
+        },
+      });
+    } else {
+      // Créer un nouveau classement
+      await prisma.rankings.create({
+        data: {
+          user_id: userId,
+          total_value: totalValue,
+          rank: 0, // Sera calculé par un job séparé
+          last_updated: new Date(),
+        },
+      });
+    }
+
+    // Recalculer les rangs
+    const allRankings = await prisma.rankings.findMany({
+      orderBy: { total_value: 'desc' },
+    });
+
+    // Mettre à jour les rangs pour tous les utilisateurs
+    for (let i = 0; i < allRankings.length; i++) {
+      await prisma.rankings.update({
+        where: { id: allRankings[i].id },
+        data: { rank: i + 1 },
+      });
+    }
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour du classement:", error);
+  }
+}
+
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   
@@ -25,7 +90,17 @@ export async function GET(req: NextRequest) {
       where: { portfolio_id: portfolio.id },
     });
 
-    return NextResponse.json({ holdings });
+    // Transformer les données pour correspondre à ce qu'attend le client
+    const formattedHoldings = holdings.map(h => ({
+      id: h.id,
+      crypto_id: h.crypto_id,
+      crypto_name: h.crypto_name || 'Crypto',
+      crypto_symbol: h.crypto_symbol || 'CRYPTO',
+      amount: parseFloat(h.amount.toString()),
+      average_buy_price: parseFloat(h.average_buy_price.toString())
+    }));
+
+    return NextResponse.json(formattedHoldings);
   } catch (error) {
     console.error('Error fetching holdings:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -70,6 +145,8 @@ export async function POST(req: NextRequest) {
         data: {
           portfolio_id: portfolio.id,
           crypto_id: crypto_id.toString(),
+          crypto_name: crypto_name,
+          crypto_symbol: crypto_symbol,
           amount,
           price_at_transaction: price,
           transaction_type: 'buy',
@@ -102,6 +179,8 @@ export async function POST(req: NextRequest) {
           data: {
             amount: newAmount,
             average_buy_price: newAveragePrice,
+            crypto_name: crypto_name,
+            crypto_symbol: crypto_symbol,
           },
         });
       } else {
@@ -110,12 +189,17 @@ export async function POST(req: NextRequest) {
           data: {
             portfolio_id: portfolio.id,
             crypto_id: crypto_id.toString(),
+            crypto_name: crypto_name,
+            crypto_symbol: crypto_symbol,
             amount,
             average_buy_price: price,
           },
         });
       }
     });
+
+    // Mettre à jour le classement après la transaction
+    await updateRanking(session.user.id);
 
     return NextResponse.json({ success: true, holding: result });
   } catch (error) {

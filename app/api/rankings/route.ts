@@ -6,38 +6,101 @@ import { authOptions } from '../auth/[...nextauth]/route';
 // Récupérer le classement global des utilisateurs
 export async function GET() {
   try {
-    // Récupérer les classements et les ordonner par valeur totale décroissante
+    // Récupération des classements de la base de données
     const rankings = await prisma.rankings.findMany({
       orderBy: {
-        total_value: 'desc',
+        rank: 'asc',
       },
       include: {
         user: {
           select: {
+            id: true,
             name: true,
-            email: true,
             image: true,
           },
         },
       },
-      take: 100, // Limiter aux 100 meilleurs
     });
 
-    // Ajouter le rang calculé (plus propre que de stocker en base)
-    const rankedResults = rankings.map((ranking, index) => ({
-      ...ranking,
-      rank: index + 1,
-    }));
+    if (!rankings || rankings.length === 0) {
+      // Si aucun classement n'est trouvé, générer un classement préliminaire
+      await generateInitialRankings();
+      
+      // Récupérer les classements nouvellement générés
+      const initialRankings = await prisma.rankings.findMany({
+        orderBy: {
+          rank: 'asc',
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              image: true,
+            },
+          },
+        },
+      });
+      
+      return NextResponse.json(initialRankings);
+    }
 
-    return NextResponse.json({
-      rankings: rankedResults,
-    });
+    return NextResponse.json(rankings);
   } catch (error) {
-    console.error("Erreur lors de la récupération du classement:", error);
+    console.error('Erreur lors de la récupération des classements:', error);
     return NextResponse.json(
-      { error: "Erreur lors de la récupération du classement" },
+      { error: 'Erreur lors de la récupération des classements' },
       { status: 500 }
     );
+  }
+}
+
+// Fonction pour générer un classement initial en fonction des portefeuilles existants
+async function generateInitialRankings() {
+  try {
+    // Récupérer tous les utilisateurs avec leurs portefeuilles
+    const portfolios = await prisma.portfolios.findMany({
+      include: {
+        user: true,
+        holdings: true,
+      },
+    });
+
+    // Pour chaque portefeuille, calculer la valeur totale (solde + valeur des crypto)
+    // Ici on utilise simplement le solde comme valeur totale pour l'exemple
+    const portfolioValues = portfolios.map(portfolio => ({
+      userId: portfolio.user_id,
+      totalValue: portfolio.balance || 10000, // Utiliser le solde ou 10000 par défaut
+    }));
+
+    // Trier par valeur totale décroissante
+    portfolioValues.sort((a, b) => Number(b.totalValue) - Number(a.totalValue));
+
+    // Créer ou mettre à jour les classements
+    for (let i = 0; i < portfolioValues.length; i++) {
+      const { userId, totalValue } = portfolioValues[i];
+      const rank = i + 1;
+
+      await prisma.rankings.upsert({
+        where: { user_id: userId },
+        update: {
+          total_value: totalValue,
+          rank,
+          last_updated: new Date(),
+        },
+        create: {
+          user_id: userId,
+          total_value: totalValue,
+          rank,
+          last_updated: new Date(),
+        },
+      });
+    }
+
+    console.log('Classements initiaux générés avec succès');
+  } catch (error) {
+    console.error('Erreur lors de la génération des classements initiaux:', error);
+    throw error;
   }
 }
 

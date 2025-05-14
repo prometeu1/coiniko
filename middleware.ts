@@ -12,10 +12,16 @@ export function middleware(request: NextRequest) {
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   
-  // En-tête CSP pour améliorer la sécurité (à ajuster selon vos besoins)
+  // Ajouter des en-têtes CORS pour permettre les requêtes
+  response.headers.set('Access-Control-Allow-Origin', '*');
+  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  response.headers.set('Access-Control-Allow-Credentials', 'true');
+  
+  // En-tête CSP plus permissif pour les ressources externes
   response.headers.set(
     'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://pro-api.coinmarketcap.com https://api.coingecko.com;"
+    "default-src 'self' https://accounts.google.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*; font-src 'self' data:; connect-src 'self' https://* http://localhost:*; frame-src 'self' https://accounts.google.com;"
   );
   
   return response;
@@ -25,6 +31,6 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     // Appliquer à toutes les routes sauf quelques exceptions
-    '/((?!api/auth|_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 }; 

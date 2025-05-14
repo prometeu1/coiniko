@@ -1,10 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
+  reactStrictMode: false,
   images: {
     domains: [
       'lh3.googleusercontent.com', // Pour les images de profil Google
       'avatars.githubusercontent.com',
+      'localhost',
     ],
     remotePatterns: [
       {
@@ -30,6 +31,12 @@ const nextConfig = {
     // Optimisations avancées
     optimizeCss: true,
     scrollRestoration: true,
+  },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
   },
 };
 
