@@ -74,11 +74,12 @@ export default function Navbar() {
               <Image
                 src="/COINIKO.gif"
                 alt="Logo"
-                width={150}
-                height={60}
+                width={100}
+                height={40}
                 priority
                 unoptimized
-                className="object-contain relative z-10"
+                className="object-contain relative z-10 h-auto w-auto max-h-[40px]"
+                style={{ maxWidth: '100px' }}
               />
             </Link>
           </div>
