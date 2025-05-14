@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
-import { ArrowUpIcon, ArrowDownIcon } from "lucide-react";
+import { ArrowUpIcon, ArrowDownIcon, RefreshCw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { getCryptoPrice, mapCoinMarketCapToGeckoId } from "@/lib/cryptoService";
 
 interface CryptoHoldingCardProps {
   id: string;
@@ -28,33 +29,65 @@ export function CryptoHoldingCard({
   const [priceChange, setPriceChange] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string>(`https://s2.coinmarketcap.com/static/img/coins/64x64/${cryptoId}.png`);
 
-  // Simuler les variations de prix en temps réel (à remplacer par une API réelle)
+  // Récupérer les données réelles de prix
   useEffect(() => {
-    setIsLoading(true);
-    
-    // Simuler un appel API avec un délai
-    const timer = setTimeout(() => {
+    const fetchRealPrice = async () => {
+      setIsLoading(true);
+      
       try {
-        // Générer un prix aléatoire avec une variation de ±20% du prix d'achat
-        const randomVariation = (Math.random() * 0.4) - 0.2; // -0.2 à +0.2
+        // Convertir l'ID de CoinMarketCap en ID CoinGecko
+        const geckoId = mapCoinMarketCapToGeckoId(cryptoId);
+        
+        // Récupérer les données de prix
+        const priceData = await getCryptoPrice(geckoId);
+        
+        if (priceData) {
+          setCurrentPrice(priceData.current_price);
+          setPriceChange(priceData.price_change_percentage_24h);
+          
+          // Utiliser l'image de CoinGecko si disponible
+          if (priceData.image) {
+            setImageUrl(priceData.image);
+          }
+        } else {
+          // Fallback à la simulation si l'API ne retourne pas de données
+          const randomVariation = (Math.random() * 0.4) - 0.2; // -0.2 à +0.2
+          const newPrice = purchasePrice * (1 + randomVariation);
+          
+          setCurrentPrice(newPrice);
+          setPriceChange(randomVariation * 100);
+        }
+      } catch (err) {
+        console.error("Erreur lors du chargement des données de prix:", err);
+        setError("Erreur lors du chargement des données");
+        
+        // Fallback en cas d'erreur
+        const randomVariation = (Math.random() * 0.4) - 0.2;
         const newPrice = purchasePrice * (1 + randomVariation);
         
         setCurrentPrice(newPrice);
-        setPriceChange(randomVariation * 100); // Convertir en pourcentage
-        setIsLoading(false);
-      } catch (err) {
-        setError("Erreur lors du chargement des données");
+        setPriceChange(randomVariation * 100);
+      } finally {
         setIsLoading(false);
       }
-    }, 1000);
+    };
     
-    return () => clearTimeout(timer);
-  }, [purchasePrice]);
+    fetchRealPrice();
+    
+    // Mettre à jour les prix toutes les 60 secondes
+    const intervalId = setInterval(fetchRealPrice, 60000);
+    
+    return () => clearInterval(intervalId);
+  }, [cryptoId, purchasePrice]);
 
   // Calculer la valeur actuelle et la variation
   const currentValue = amount * currentPrice;
   const profitLoss = currentValue - totalInvested;
+  const profitLossPercentage = totalInvested > 0 
+    ? (profitLoss / totalInvested) * 100 
+    : 0;
   
   // Déterminer la couleur en fonction de la variation
   const getChangeColor = (change: number) => {
@@ -70,24 +103,18 @@ export function CryptoHoldingCard({
           <div className="flex items-center space-x-3">
             {/* Logo de la crypto */}
             <div className="relative w-10 h-10 flex-shrink-0">
-              {cryptoId ? (
-                <Image
-                  src={`https://s2.coinmarketcap.com/static/img/coins/64x64/${cryptoId}.png`}
-                  alt={name}
-                  width={40}
-                  height={40}
-                  className="crypto-logo"
-                  onError={(e) => {
-                    // Fallback if image fails to load
-                    const target = e.target as HTMLImageElement;
-                    target.src = "https://placehold.co/40x40/3b82f6/FFFFFF?text=" + symbol.substring(0, 3);
-                  }}
-                />
-              ) : (
-                <div className="crypto-logo bg-primary/10 flex items-center justify-center text-sm font-bold">
-                  {symbol.substring(0, 3)}
-                </div>
-              )}
+              <Image
+                src={imageUrl}
+                alt={name}
+                width={40}
+                height={40}
+                className="crypto-logo"
+                onError={(e) => {
+                  // Fallback if image fails to load
+                  const target = e.target as HTMLImageElement;
+                  target.src = `https://placehold.co/40x40/3b82f6/FFFFFF?text=${symbol.substring(0, 3)}`;
+                }}
+              />
             </div>
 
             {/* Nom et symbole */}
@@ -112,11 +139,19 @@ export function CryptoHoldingCard({
         <div className="mt-3 flex items-center justify-between text-sm">
           <div>
             <div className="text-muted-foreground">Prix d'achat: ${purchasePrice.toFixed(2)}</div>
-            <div className="text-muted-foreground">Prix actuel: 
+            <div className="text-muted-foreground flex items-center">
+              Prix actuel: 
               {isLoading ? (
                 <span className="ml-1 inline-block w-16 h-4 bg-muted animate-pulse rounded"></span>
               ) : (
                 <span className="ml-1">${currentPrice.toFixed(2)}</span>
+              )}
+              {!isLoading && (
+                <RefreshCw 
+                  size={12} 
+                  className="ml-1 text-muted-foreground cursor-pointer hover:text-primary" 
+                  onClick={() => setIsLoading(true)}
+                />
               )}
             </div>
           </div>
@@ -138,7 +173,7 @@ export function CryptoHoldingCard({
             
             {/* Profit/Perte */}
             <div className={`text-xs font-medium ${getChangeColor(profitLoss)}`}>
-              {profitLoss > 0 ? "+" : ""}{profitLoss.toFixed(2)}$
+              {profitLoss > 0 ? "+" : ""}{profitLossPercentage.toFixed(2)}% (${profitLoss.toFixed(2)})
             </div>
           </div>
         </div>

@@ -6,6 +6,8 @@ const nextConfig = {
       'lh3.googleusercontent.com', // Pour les images de profil Google
       'avatars.githubusercontent.com',
       'localhost',
+      's2.coinmarketcap.com', // Images de CoinMarketCap
+      'assets.coingecko.com', // Images de CoinGecko
     ],
     remotePatterns: [
       {
@@ -37,6 +39,15 @@ const nextConfig = {
   },
   eslint: {
     ignoreDuringBuilds: true,
+  },
+  async redirects() {
+    return [
+      {
+        source: '/api/auth/signin',
+        destination: '/auth/signin',
+        permanent: true,
+      },
+    ];
   },
 };
 

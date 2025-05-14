@@ -104,6 +104,10 @@ export const authOptions: NextAuthOptions = {
       }
     }
   },
+  pages: {
+    signIn: '/auth/signin',
+    error: '/auth/error',
+  },
   secret: process.env.NEXTAUTH_SECRET || 'your-secret-key-at-least-32-chars-long',
 };
 
