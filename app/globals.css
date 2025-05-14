@@ -125,6 +125,48 @@
   100% { opacity: 0.8; }
 }
 
+@keyframes shine {
+  100% {
+    left: 125%;
+  }
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+@keyframes gradientText {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes borderGlow {
+  0% {
+    box-shadow: 0 0 5px rgba(var(--primary) / 0.5), 0 0 10px rgba(var(--accent) / 0.3);
+  }
+  50% {
+    box-shadow: 0 0 10px rgba(var(--primary) / 0.8), 0 0 20px rgba(var(--accent) / 0.5);
+  }
+  100% {
+    box-shadow: 0 0 5px rgba(var(--primary) / 0.5), 0 0 10px rgba(var(--accent) / 0.3);
+  }
+}
+
 /* Classes d'animation */
 .animate-fade-in {
   animation: fadeIn 0.5s ease forwards;
@@ -136,6 +178,33 @@
 
 .animate-pulse-slow {
   animation: pulse 3s ease-in-out infinite;
+}
+
+.animation-delay-1000 {
+  animation-delay: 1s;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-shine {
+  animation: shine 1.5s ease-in-out infinite;
+}
+
+.animate-gradient-text {
+  background-size: 200% auto;
+  background-clip: text;
+  -webkit-background-clip: text;
+  animation: gradientText 4s linear infinite;
+}
+
+.animate-border-glow {
+  animation: borderGlow 2s ease-in-out infinite;
 }
 
 /* Styles de glassmorphism */
@@ -229,6 +298,56 @@
 
 .dark .toast-futuristic {
   @apply bg-card/90;
+}
+
+/* Effet de gradient pour texte */
+.gradient-text {
+  @apply bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent;
+}
+
+/* Effet de glassmorphism amélioré */
+.glass-card {
+  @apply relative bg-white/10 dark:bg-black/10 backdrop-blur-md border border-white/20 dark:border-white/10 rounded-xl overflow-hidden;
+}
+
+/* Effets de survol des cartes */
+.hover-card {
+  @apply transition-all duration-300;
+}
+
+.hover-card:hover {
+  transform: translateY(-5px);
+  @apply shadow-lg;
+}
+
+/* Effet de halo pour les icônes */
+.icon-glow {
+  filter: drop-shadow(0 0 5px rgba(var(--primary) / 0.5));
+}
+
+/* Pour les images crypto dans l'historique des transactions */
+.crypto-logo {
+  @apply rounded-full overflow-hidden bg-gradient-to-br from-secondary to-background p-1 border border-border/50;
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+/* Styles pour l'affichage du portefeuille en temps réel */
+.portfolio-value-card {
+  @apply relative overflow-hidden rounded-xl border border-border/50 bg-card/70 backdrop-blur-md transition-all duration-300;
+}
+
+.portfolio-value-card:hover {
+  @apply border-primary/30 shadow-md;
+}
+
+.portfolio-value-change-positive {
+  @apply text-green-500 font-medium;
+}
+
+.portfolio-value-change-negative {
+  @apply text-red-500 font-medium;
 }
 
 

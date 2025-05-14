@@ -77,7 +77,7 @@ To use Coiniko locally, you need to configure the **CoinMarketCap API key**. Fol
 
 3. **How to Get a CoinMarketCap API Key**:
    - Visit the [CoinMarketCap API](https://coinmarketcap.com/api/) website.
-   - **Sign up for a free account** if you don’t already have one.
+   - **Sign up for a free account** if you don't already have one.
    - Navigate to **Overview** or **DEX Overview** in the API section of your account.
    - Copy the provided API key and paste it into your `.env.local` file.
 
@@ -101,5 +101,69 @@ This project is licensed under the MIT License.
 
 - **Kevin**: Lead Developer, Designer  
 - **Contributors**: Open for collaboration  
+
+## Database Setup with Supabase and Prisma
+
+This application uses Supabase as the database provider and Prisma as the ORM.
+
+### Getting Started
+
+1. **Create a Supabase Account and Project**
+   - Go to [Supabase](https://supabase.com/) and create an account
+   - Create a new project
+   - Get your database connection string from Project Settings > Database
+
+2. **Set Up Environment Variables**
+   - Copy `.env.example` to `.env`
+   - Update `DATABASE_URL` with your Supabase connection string
+
+3. **Install Dependencies**
+   ```bash
+   npm install @prisma/client @auth/prisma-adapter next-auth
+   ```
+
+4. **Run Prisma Migrations**
+   ```bash
+   npx prisma migrate dev --name init
+   ```
+
+### Database Schema
+
+The database includes the following tables:
+
+- **users**: User accounts
+- **portfolios**: User's portfolio with balance
+- **holdings**: Cryptocurrency holdings
+- **transactions**: Buy/sell transaction history
+- **rankings**: User rankings for leaderboard
+
+### User Authentication
+
+This application uses NextAuth.js for authentication:
+
+1. **Configure Auth Providers**
+   - Update OAuth credentials in `.env`
+   - Customize sign-in pages in `app/auth/` directory
+
+2. **User Onboarding**
+   - A portfolio is automatically created for new users
+   - Starting balance is set to $10,000
+
+### API Routes
+
+The following API endpoints are available:
+
+- **GET/POST /api/wallet/balance**: Get or update wallet balance
+- **GET/POST /api/wallet/holdings**: Get holdings or buy cryptocurrency
+- **GET/POST /api/wallet/transactions**: Get transaction history or sell cryptocurrency
+- **GET/POST /api/rankings**: Get or update user rankings
+
+### Wallet Features
+
+- Track cryptocurrency investments
+- Buy and sell cryptocurrencies
+- View transaction history
+- Monitor portfolio performance
+- Compare with other users via rankings
 
 
