@@ -21,6 +21,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import CryptoHoldingCard from "@/components/crypto-holding-card";
 
 export default function WalletPage() {
   const { balance, holdings, transactions } = useWallet();
@@ -182,27 +183,18 @@ export default function WalletPage() {
                   </Link>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
                   {holdings.map((holding) => (
-                    <div key={holding.id} className="flex items-center justify-between border-b pb-3">
-                      <div className="flex items-center">
-                        <Image
-                          src={`https://s2.coinmarketcap.com/static/img/coins/64x64/${holding.id}.png`}
-                          alt={holding.name}
-                          width={32}
-                          height={32}
-                          className="mr-2"
-                        />
-                        <div>
-                          <h3 className="font-medium">{holding.name}</h3>
-                          <p className="text-sm text-muted-foreground">{holding.symbol}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium">{holding.amount.toFixed(6)} {holding.symbol}</p>
-                        <p className="text-sm">${(holding.amount * holding.purchasePrice).toFixed(2)}</p>
-                      </div>
-                    </div>
+                    <CryptoHoldingCard
+                      key={holding.id}
+                      id={holding.id}
+                      cryptoId={holding.cryptoId}
+                      name={holding.name}
+                      symbol={holding.symbol}
+                      amount={holding.amount}
+                      purchasePrice={holding.purchasePrice}
+                      totalInvested={holding.totalInvested}
+                    />
                   ))}
                 </div>
               )}
@@ -228,8 +220,8 @@ export default function WalletPage() {
                   {transactions.map((transaction) => (
                     <div key={transaction.id} className="flex items-center justify-between border-b pb-3">
                       <div className="flex items-center">
-                        <div className={`p-2 rounded-full mr-2 ${
-                          transaction.type === 'buy' ? 'bg-green-100 dark:bg-green-900' : 'bg-red-100 dark:bg-red-900'
+                        <div className={`p-2 rounded-full mr-3 ${
+                          transaction.type === 'buy' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'
                         }`}>
                           {transaction.type === 'buy' ? (
                             <ArrowDownIcon className="h-4 w-4 text-green-500 dark:text-green-300" />
@@ -237,11 +229,27 @@ export default function WalletPage() {
                             <ArrowUpIcon className="h-4 w-4 text-red-500 dark:text-red-300" />
                           )}
                         </div>
-                        <div>
-                          <h3 className="font-medium">
-                            {transaction.type === 'buy' ? 'Achat' : 'Vente'} de {transaction.cryptoSymbol}
-                          </h3>
-                          <p className="text-sm text-muted-foreground">{formatDate(transaction.timestamp)}</p>
+                        <div className="flex items-center">
+                          <div className="relative w-8 h-8 mr-3">
+                            <Image
+                              src={`https://s2.coinmarketcap.com/static/img/coins/64x64/${transaction.cryptoId}.png`}
+                              alt={transaction.cryptoName}
+                              width={32}
+                              height={32}
+                              className="crypto-logo"
+                              onError={(e) => {
+                                // Fallback if image fails to load
+                                const target = e.target as HTMLImageElement;
+                                target.src = `https://placehold.co/32x32/3b82f6/FFFFFF?text=${transaction.cryptoSymbol.substring(0, 3)}`;
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <h3 className="font-medium">
+                              {transaction.type === 'buy' ? 'Achat' : 'Vente'} de {transaction.cryptoSymbol}
+                            </h3>
+                            <p className="text-sm text-muted-foreground">{formatDate(transaction.timestamp)}</p>
+                          </div>
                         </div>
                       </div>
                       <div className="text-right">
