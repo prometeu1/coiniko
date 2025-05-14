@@ -104,17 +104,7 @@ export default function SignIn() {
           
           <div className="relative flex items-center">
             <div className="flex-grow border-t border-border/30"></div>
-            <span className="flex-shrink mx-4 text-sm text-muted-foreground">ou</span>
             <div className="flex-grow border-t border-border/30"></div>
-          </div>
-          
-          <div>
-            <p className="text-center text-sm text-muted-foreground">
-              Vous n'avez pas de compte?{" "}
-              <span className="text-primary hover:underline cursor-pointer" onClick={handleGoogleSignIn}>
-                Inscrivez-vous gratuitement
-              </span>
-            </p>
           </div>
         </CardContent>
         

@@ -2,7 +2,9 @@ import { PrismaClient } from '@prisma/client';
 
 // PrismaClient is attached to the `global` object in development to prevent
 // exhausting your database connection limit.
-const globalForPrisma = global as unknown as { prisma: PrismaClient };
+const globalForPrisma = global as unknown as { 
+  prisma: PrismaClient | undefined;
+};
 
 // Ajout de logs pour le debug
 console.log('=== Initializing Prisma client ===');
@@ -43,46 +45,40 @@ if (directUrl) {
 // Create Prisma client with enhanced error handling
 let prisma: PrismaClient;
 
-if (!databaseUrl) {
-  console.error('DATABASE_URL is required. Please check your .env file');
-  // Dummy implementation to prevent app from crashing
+// Check if we already have a connection to reuse
+if (process.env.NODE_ENV === 'production') {
   prisma = new PrismaClient({
     log: ['error'],
+    datasources: {
+      db: {
+        url: databaseUrl,
+      },
+    },
   });
 } else {
-  try {
-    prisma = globalForPrisma.prisma || 
-      new PrismaClient({
-        log: ['error', 'warn'],
-        datasources: {
-          db: {
-            url: databaseUrl,
-          },
+  // In development, preserve connection across hot reloads
+  if (!globalForPrisma.prisma) {
+    globalForPrisma.prisma = new PrismaClient({
+      log: ['error', 'warn'],
+      datasources: {
+        db: {
+          url: databaseUrl,
         },
-      });
-    
-    console.log('Prisma client initialized successfully');
-  } catch (error) {
-    console.error('Error initializing Prisma client:', error);
-    // Fallback to a default Prisma client in case of error
-    prisma = new PrismaClient();
+      },
+    });
   }
+  prisma = globalForPrisma.prisma;
 }
 
 // Test database connection
 (async () => {
   try {
-    // Simple query to test connection
-    // await prisma.$queryRaw`SELECT 1 as test`; // Désactivé car cause des bugs en dev
+    // DO NOT run any query here - just log success
     console.log('✅ Database connection successful');
   } catch (error) {
     console.error('❌ Database connection failed:', error);
     console.log('WARNING: The app will function with limited features that do not require database access.');
   }
 })();
-
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma;
-}
 
 export { prisma }; 

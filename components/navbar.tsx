@@ -65,53 +65,55 @@ export default function Navbar() {
         : "bg-transparent py-4"
     )}>
       <div className="container flex h-16 items-center px-4">
-        {/* Conteneur principal avec 3 sections de taille égale et centrées */}
+        {/* Conteneur principal avec 3 sections et layout amélioré */}
         <div className="flex w-full justify-between items-center">
-          {/* Section gauche - Logo */}
-          <div className="w-1/3 flex justify-start">
+          {/* Section gauche - Logo (plus compact) */}
+          <div className="w-1/4 flex justify-start">
             <Link href="/" className="flex items-center relative group">
               <div className="absolute inset-0 bg-accent/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
               <Image
                 src="/COINIKO.gif"
                 alt="Logo"
-                width={100}
-                height={40}
+                width={90}
+                height={36}
                 priority
                 unoptimized
-                className="object-contain relative z-10 h-auto w-auto max-h-[40px]"
-                style={{ maxWidth: '100px' }}
+                className="object-contain relative z-10 h-auto w-auto max-h-[36px]"
+                style={{ maxWidth: '90px' }}
               />
             </Link>
           </div>
 
-          {/* Section centrale - Navigation desktop */}
-          <div className="w-1/3 hidden md:flex justify-center">
-            <nav className="flex items-center space-x-1">
-              <Link href="/">
-                <Button variant="ghost" className="flex items-center gap-2 rounded-lg px-5 hover:bg-primary/10">
-                  <Home size={18} className="text-primary" />
-                  <span>Accueil</span>
-                </Button>
-              </Link>
-              
-              <Link href="/wallet">
-                <Button variant="ghost" className="flex items-center gap-2 rounded-lg px-5 hover:bg-primary/10">
-                  <Wallet size={18} className="text-primary" />
-                  <span>Portefeuille</span>
-                </Button>
-              </Link>
+          {/* Section centrale - Navigation desktop (plus large) */}
+          <div className="w-2/4 hidden md:flex justify-center">
+            <nav className="flex items-center justify-center w-full">
+              <div className="flex bg-accent/5 rounded-lg p-1">
+                <Link href="/">
+                  <Button variant="ghost" className="flex items-center gap-2 rounded-lg px-4 hover:bg-primary/10">
+                    <Home size={16} className="text-primary" />
+                    <span>Accueil</span>
+                  </Button>
+                </Link>
+                
+                <Link href="/wallet">
+                  <Button variant="ghost" className="flex items-center gap-2 rounded-lg px-4 hover:bg-primary/10">
+                    <Wallet size={16} className="text-primary" />
+                    <span>Portefeuille</span>
+                  </Button>
+                </Link>
 
-              <Link href="/rankings">
-                <Button variant="ghost" className="flex items-center gap-2 rounded-lg px-5 hover:bg-primary/10">
-                  <Trophy size={18} className="text-primary" />
-                  <span>Classement</span>
-                </Button>
-              </Link>
+                <Link href="/rankings">
+                  <Button variant="ghost" className="flex items-center gap-2 rounded-lg px-4 hover:bg-primary/10">
+                    <Trophy size={16} className="text-primary" />
+                    <span>Classement</span>
+                  </Button>
+                </Link>
+              </div>
             </nav>
           </div>
 
-          {/* Section droite - Actions */}
-          <div className="w-1/3 flex justify-end items-center gap-3">
+          {/* Section droite - Actions (plus compact) */}
+          <div className="w-1/4 flex justify-end items-center gap-2">
             {status === "authenticated" && (
               <>
                 {/* Wallet balance avec animation de pulse */}
@@ -120,7 +122,7 @@ export default function Navbar() {
                     variant="outline" 
                     className="hidden sm:flex items-center gap-2 border border-accent/50 hover:border-accent/80 hover:bg-accent/5 neon-border"
                   >
-                    <Wallet size={18} className="text-accent animate-pulse-slow" />
+                    <Wallet size={16} className="text-accent animate-pulse-slow" />
                     <span className="font-medium">${balance.toLocaleString()}</span>
                   </Button>
                 </Link>
