@@ -15,7 +15,7 @@
     "analyze": "ANALYZE=true next build",
     "clean": "rm -rf .next && rm -rf node_modules/.cache",
     "type-check": "tsc --noEmit",
-    "vercel-build": "node prisma-generate.js && prisma generate && prisma db push && next build"
+    "vercel-build": "node prisma-generate.js && prisma generate && next build"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.9.1",
