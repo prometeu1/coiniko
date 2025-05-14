@@ -33,7 +33,7 @@ interface WalletContextType {
   isLoading: boolean;
   error: string | null;
   refreshWallet: () => Promise<void>;
-  getCryptoHolding: (cryptoId: string) => Holding | undefined;
+  getCryptoHolding: (cryptoId: string | number) => Holding | undefined;
   buyCrypto: (
     cryptoId: string,
     cryptoName: string,
@@ -159,8 +159,9 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // Fonction pour trouver un crypto holding par ID
-  const getCryptoHolding = (cryptoId: string): Holding | undefined => {
-    return holdings.find(holding => holding.cryptoId === cryptoId);
+  const getCryptoHolding = (cryptoId: string | number): Holding | undefined => {
+    const idString = String(cryptoId);
+    return holdings.find(holding => holding.cryptoId === idString);
   };
 
   // Fonction pour acheter une crypto

@@ -241,10 +241,20 @@ export default function Page() {
       header: "Vos Actifs",
       cell: ({ row }) => {
         const crypto = row.original;
-        const holding = getCryptoHolding(crypto.id);
+        const holding = getCryptoHolding(crypto.id.toString());
+        const [localHoldingVisible, setLocalHoldingVisible] = React.useState(!!holding);
+        
+        // Utiliser un effet pour garantir que l'affichage des holdings persiste
+        React.useEffect(() => {
+          // Mise à jour du statut d'affichage uniquement si le holding existe
+          if (holding) {
+            setLocalHoldingVisible(true);
+          }
+        }, [holding]);
+        
         return (
           <div className="text-right">
-            {holding ? (
+            {localHoldingVisible && holding ? (
               <div>
                 <div className="font-medium">{holding.amount.toFixed(6)} {crypto.symbol}</div>
                 <div className="text-xs text-muted-foreground">
@@ -347,6 +357,20 @@ export default function Page() {
     setTradeType(type);
     setAmount('');
     setTotalValue(0);
+
+    // Si c'est une vente, vérifier d'abord si l'utilisateur possède cette crypto
+    if (type === 'sell') {
+      const holding = getCryptoHolding(crypto.id.toString());
+      if (!holding || holding.amount <= 0) {
+        toast({
+          title: "Vente impossible",
+          description: `Vous ne possédez pas de ${crypto.symbol}`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    
     setIsTradeModalOpen(true);
   };
 
@@ -419,6 +443,17 @@ export default function Page() {
     
     if (success) {
       setIsTradeModalOpen(false);
+      
+      // Réinitialiser les critères de filtre et de tri du tableau
+      // pour garantir que toutes les cryptos sont visibles après la transaction
+      table.resetColumnFilters();
+      
+      // Forcer le rafraîchissement des données après un court délai
+      // pour permettre au contexte du portefeuille de se mettre à jour
+      setTimeout(() => {
+        // Mise à jour des données des cryptos pour refléter les nouveaux actifs
+        setCryptos(prevCryptos => [...prevCryptos]);
+      }, 1000);
     }
   };
 
@@ -612,13 +647,36 @@ export default function Page() {
               <div className="grid grid-cols-2 items-center gap-4 p-3 bg-card/50 rounded-lg">
                 <Label htmlFor="holding" className="text-muted-foreground">Vous possédez</Label>
                 <div className="text-right font-medium">
-                  {getCryptoHolding(selectedCrypto?.id || 0)?.amount.toFixed(6) || 0} {selectedCrypto?.symbol}
+                  {getCryptoHolding(selectedCrypto?.id.toString() || "0")?.amount.toFixed(6) || 0} {selectedCrypto?.symbol}
                 </div>
               </div>
             )}
 
-            <div className="space-y-2">
-              <Label htmlFor="amount">Quantité</Label>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="amount">Quantité</Label>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    if (tradeType === 'buy' && selectedCrypto) {
+                      // Acheter au maximum possible avec la balance disponible
+                      const maxAmount = balance / selectedCrypto.price;
+                      setAmount(maxAmount.toFixed(6));
+                    } else if (tradeType === 'sell' && selectedCrypto) {
+                      // Vendre tout ce qu'on possède
+                      const holding = getCryptoHolding(selectedCrypto.id.toString());
+                      if (holding) {
+                        setAmount(holding.amount.toFixed(6));
+                      }
+                    }
+                  }}
+                  className="h-8 px-2 text-xs"
+                >
+                  Max
+                </Button>
+              </div>
               <Input
                 id="amount"
                 type="number"
@@ -629,6 +687,40 @@ export default function Page() {
                 placeholder={`Quantité de ${selectedCrypto?.symbol}`}
                 className="border-accent/20 focus-visible:ring-accent"
               />
+              
+              {/* Barre de pourcentage */}
+              <div className="space-y-2">
+                <Label htmlFor="percentage-slider" className="text-sm text-muted-foreground">
+                  Pourcentage {tradeType === 'buy' ? 'de la balance' : 'de vos actifs'}
+                </Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="percentage-slider"
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    className="w-full h-2 bg-accent/20 rounded-lg appearance-none cursor-pointer"
+                    onChange={(e) => {
+                      const percentage = parseInt(e.target.value);
+                      if (tradeType === 'buy' && selectedCrypto) {
+                        // Calculer le montant basé sur un pourcentage de la balance
+                        const maxAmount = balance / selectedCrypto.price;
+                        const calculatedAmount = (maxAmount * percentage) / 100;
+                        setAmount(calculatedAmount.toFixed(6));
+                      } else if (tradeType === 'sell' && selectedCrypto) {
+                        // Calculer le montant basé sur un pourcentage des actifs
+                        const holding = getCryptoHolding(selectedCrypto.id.toString());
+                        if (holding) {
+                          const calculatedAmount = (holding.amount * percentage) / 100;
+                          setAmount(calculatedAmount.toFixed(6));
+                        }
+                      }
+                    }}
+                  />
+                  <span className="text-sm font-medium w-8 text-right">%</span>
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 items-center gap-4 p-3 bg-primary/5 rounded-lg">

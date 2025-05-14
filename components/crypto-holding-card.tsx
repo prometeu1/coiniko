@@ -242,18 +242,53 @@ export function CryptoHoldingCard({
                   <Label htmlFor="amount" className="text-right">
                     Quantité
                   </Label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    placeholder={`Max: ${amount.toFixed(6)}`}
-                    value={amountToSell}
-                    onChange={(e) => setAmountToSell(e.target.value)}
-                    className="col-span-3"
-                    step="0.000001"
-                    min="0.000001"
-                    max={amount}
-                  />
+                  <div className="col-span-3 flex gap-2">
+                    <Input
+                      id="amount"
+                      type="number"
+                      placeholder={`Max: ${amount.toFixed(6)}`}
+                      value={amountToSell}
+                      onChange={(e) => setAmountToSell(e.target.value)}
+                      className="flex-1"
+                      step="0.000001"
+                      min="0.000001"
+                      max={amount}
+                    />
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setAmountToSell(amount.toFixed(6))}
+                      className="whitespace-nowrap"
+                    >
+                      Max
+                    </Button>
+                  </div>
                 </div>
+                
+                {/* Barre de pourcentage */}
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="percentage-slider" className="text-right text-sm">
+                    Pourcentage
+                  </Label>
+                  <div className="col-span-3 flex items-center gap-2">
+                    <input
+                      id="percentage-slider"
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="1"
+                      className="flex-1 h-2 bg-accent/20 rounded-lg appearance-none cursor-pointer"
+                      onChange={(e) => {
+                        const percentage = parseInt(e.target.value);
+                        const calculatedAmount = (amount * percentage) / 100;
+                        setAmountToSell(calculatedAmount.toFixed(6));
+                      }}
+                    />
+                    <span className="text-sm font-medium w-8 text-right">%</span>
+                  </div>
+                </div>
+                
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="value" className="text-right">
                     Valeur
