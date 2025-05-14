@@ -29,51 +29,70 @@ if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
   console.error('Veuillez vérifier votre fichier .env et les valeurs dans Google Cloud Console');
 }
 
+// Création d'une fonction d'adaptateur Prisma personnalisée
+const customPrismaAdapter = PrismaAdapter(prisma);
+
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  adapter: customPrismaAdapter,
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || '',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
     }),
   ],
-  debug: true, // Facilite le débogage
+  // Désactiver le débogage pour réduire les logs
+  debug: false,
   callbacks: {
     async session({ session, user }) {
-      // Ajouter l'ID utilisateur à la session
-      if (session.user && user?.id) {
-        session.user.id = user.id;
+      try {
+        // Ajouter l'ID utilisateur à la session
+        if (session.user && user?.id) {
+          session.user.id = user.id;
+        }
+        return session;
+      } catch (error) {
+        console.error("Erreur lors de la session callback:", error);
+        return session;
       }
-      return session;
     },
     async signIn({ user, account, profile }) {
       try {
         if (!user?.id) {
-          console.log('No user ID found');
+          console.log('No user ID found, but allowing sign-in');
           return true;
         }
         
         // Vérifier si l'utilisateur a déjà un portefeuille
-        const existingPortfolio = await prisma.portfolios.findFirst({
-          where: { user_id: user.id },
-        });
-
-        if (!existingPortfolio) {
-          console.log(`Création d'un nouveau portefeuille pour l'utilisateur ${user.id}`);
-          
-          // Créer un nouveau portefeuille avec 10000$ de départ
-          await prisma.portfolios.create({
-            data: {
-              user_id: user.id,
-              balance: 10000,
-            },
+        try {
+          const existingPortfolio = await prisma.portfolios.findFirst({
+            where: { user_id: user.id },
           });
-          console.log('Portfolio created successfully');
+
+          if (!existingPortfolio) {
+            console.log(`Création d'un nouveau portefeuille pour l'utilisateur ${user.id}`);
+            
+            try {
+              // Créer un nouveau portefeuille avec 10000$ de départ
+              await prisma.portfolios.create({
+                data: {
+                  user_id: user.id,
+                  balance: 10000,
+                },
+              });
+              console.log('Portfolio created successfully');
+            } catch (portfolioError) {
+              console.error("Erreur lors de la création du portefeuille:", portfolioError);
+              // On continue quand même
+            }
+          }
+        } catch (dbError) {
+          console.error("Erreur de base de données lors du portfolio check:", dbError);
+          // On continue quand même
         }
         
         return true;
       } catch (error) {
-        console.error("Erreur lors de la création du portefeuille:", error);
+        console.error("Erreur globale dans signIn callback:", error);
         // On autorise quand même la connexion en cas d'erreur
         return true;
       }
@@ -86,21 +105,25 @@ export const authOptions: NextAuthOptions = {
         await new Promise(resolve => setTimeout(resolve, 500));
         
         // Créer un portefeuille pour le nouvel utilisateur
-        const existingPortfolio = await prisma.portfolios.findFirst({
-          where: { user_id: message.user.id },
-        });
-        
-        if (!existingPortfolio) {
-          await prisma.portfolios.create({
-            data: {
-              user_id: message.user.id,
-              balance: 10000,
-            },
+        try {
+          const existingPortfolio = await prisma.portfolios.findFirst({
+            where: { user_id: message.user.id },
           });
-          console.log(`Portfolio created for new user ${message.user.id}`);
+          
+          if (!existingPortfolio) {
+            await prisma.portfolios.create({
+              data: {
+                user_id: message.user.id,
+                balance: 10000,
+              },
+            });
+            console.log(`Portfolio created for new user ${message.user.id}`);
+          }
+        } catch (dbError) {
+          console.error("Erreur de base de données lors de la création du portefeuille:", dbError);
         }
       } catch (error) {
-        console.error("Erreur lors de la création du portefeuille:", error);
+        console.error("Erreur globale lors de la création du portefeuille:", error);
       }
     }
   },

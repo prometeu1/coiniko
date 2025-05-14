@@ -16,6 +16,11 @@ const nextConfig = {
       },
     ],
   },
+  env: {
+    // Correction des URLs de base de données avec les bonnes valeurs sans retour à la ligne
+    DATABASE_URL: "postgresql://postgres.cndhozrtfzeqleynszxc:gi5AAop0YRqSSZXD@aws-0-eu-west-3.pooler.supabase.com:6543/postgres",
+    DIRECT_URL: "postgresql://postgres.cndhozrtfzeqleynszxc:gi5AAop0YRqSSZXD@aws-0-eu-west-3.pooler.supabase.com:5432/postgres?pgbouncer=false",
+  },
   async headers() {
     return [
       {

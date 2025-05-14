@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { 
@@ -20,8 +20,16 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  TooltipProps
 } from "recharts";
 import CryptoHoldingCard from "@/components/crypto-holding-card";
+
+// Interface pour le format des données du graphique
+interface ChartDataPoint {
+  date: string;
+  value: number;
+  formatted?: string;
+}
 
 export default function WalletPage() {
   const { balance, holdings, transactions } = useWallet();
@@ -44,21 +52,7 @@ export default function WalletPage() {
     ? (profitLoss / totalInvested) * 100 
     : 0;
 
-  // Generate mock chart data (this would be replaced with real data from your API)
-  const portfolioChartData = [
-    { date: "2023-01", value: 10000 },
-    { date: "2023-02", value: 10500 },
-    { date: "2023-03", value: 11200 },
-    { date: "2023-04", value: 10800 },
-    { date: "2023-05", value: 12000 },
-    { date: "2023-06", value: 12500 },
-    { date: "2023-07", value: 13000 },
-    { date: "2023-08", value: 13500 },
-    { date: "2023-09", value: 14000 },
-    { date: "2023-10", value: balance + portfolioValue },
-  ];
-
-  // Format date
+  // Format date - Définir toutes les fonctions utilitaires avant de les utiliser
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleDateString("fr-FR", {
       year: "numeric",
@@ -67,6 +61,189 @@ export default function WalletPage() {
       hour: "2-digit",
       minute: "2-digit"
     });
+  };
+  
+  // Format date court (pour le graphique)
+  const formatDateShort = (date: Date) => {
+    return date.toLocaleDateString("fr-FR", {
+      year: "numeric",
+      month: "short",
+    });
+  };
+  
+  // Parser la date depuis le format court
+  const parseDate = (dateString: string) => {
+    // Si c'est "Aujourd'hui", retourner la date actuelle
+    if (dateString === "Aujourd'hui") {
+      return new Date();
+    }
+    
+    // Sinon, essayer de parser le format "mmm. yyyy"
+    const parts = dateString.split(' ');
+    if (parts.length === 2) {
+      const monthStr = parts[0].replace('.', '');
+      const year = parseInt(parts[1]);
+      
+      const months = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
+      const monthIndex = months.findIndex(m => monthStr.startsWith(m));
+      
+      if (monthIndex !== -1 && !isNaN(year)) {
+        return new Date(year, monthIndex, 1);
+      }
+    }
+    
+    // Fallback: retourner la date actuelle
+    return new Date();
+  };
+  
+  // Obtenir tous les mois entre deux dates
+  const getMonthsBetween = (startDate: Date, endDate: Date) => {
+    const months = [];
+    const currentDate = new Date(startDate);
+    
+    while (currentDate <= endDate) {
+      months.push(formatDateShort(currentDate));
+      currentDate.setMonth(currentDate.getMonth() + 1);
+    }
+    
+    return months;
+  };
+  
+  // Formatter les valeurs monétaires
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 0
+    }).format(value);
+  };
+
+  // Générer des données de graphique basées sur les transactions réelles
+  const portfolioChartData = useMemo(() => {
+    if (transactions.length === 0) {
+      // Si aucune transaction, montrer seulement la balance initiale
+      return [
+        { date: "Aujourd'hui", value: 10000, formatted: "10 000 $" }
+      ];
+    }
+
+    // Trier les transactions par date (de la plus ancienne à la plus récente)
+    const sortedTransactions = [...transactions].sort((a, b) => a.timestamp - b.timestamp);
+    
+    // Date de la première transaction
+    const firstTransactionDate = new Date(sortedTransactions[0].timestamp);
+    const currentDate = new Date();
+    
+    // Créer un tableau pour stocker les valeurs du portefeuille au fil du temps
+    const dataPoints: ChartDataPoint[] = [];
+    
+    // Commencer avec la balance initiale de 10000
+    let runningBalance = 10000;
+    let cryptoHoldings: Record<string, { amount: number, price: number }> = {};
+    
+    // Ajouter le point de départ (10000 $)
+    dataPoints.push({ 
+      date: formatDateShort(firstTransactionDate), 
+      value: runningBalance,
+      formatted: formatCurrency(runningBalance)
+    });
+    
+    // Obtenir les dates des transactions (sans duplications)
+    const transactionDates = Array.from(new Set(
+      sortedTransactions.map(t => formatDateShort(new Date(t.timestamp)))
+    ));
+    
+    // Ajouter les dates intermédiaires si nécessaire (pour un graphique plus fluide)
+    const months = getMonthsBetween(firstTransactionDate, currentDate);
+    const allDates = Array.from(new Set([...transactionDates, ...months])).sort();
+    
+    // Pour chaque date, calculer la valeur du portefeuille
+    let lastCalculatedValue = runningBalance;
+    
+    allDates.forEach(dateString => {
+      const date = parseDate(dateString);
+      
+      // Appliquer toutes les transactions jusqu'à cette date
+      sortedTransactions.forEach(transaction => {
+        const transactionDate = new Date(transaction.timestamp);
+        
+        if (transactionDate <= date && transaction.type) {
+          // Mettre à jour la balance en fonction du type de transaction
+          if (transaction.type === 'buy') {
+            runningBalance -= transaction.amount * transaction.price;
+            
+            // Ajouter à nos avoirs crypto
+            if (!cryptoHoldings[transaction.cryptoId]) {
+              cryptoHoldings[transaction.cryptoId] = { amount: 0, price: 0 };
+            }
+            cryptoHoldings[transaction.cryptoId].amount += transaction.amount;
+            cryptoHoldings[transaction.cryptoId].price = transaction.price;
+          } else if (transaction.type === 'sell') {
+            runningBalance += transaction.amount * transaction.price;
+            
+            // Soustraire de nos avoirs crypto
+            if (cryptoHoldings[transaction.cryptoId]) {
+              cryptoHoldings[transaction.cryptoId].amount -= transaction.amount;
+            }
+          }
+        }
+      });
+      
+      // Calculer la valeur totale (balance + valeur des cryptos détenues)
+      const cryptoValue = Object.values(cryptoHoldings).reduce(
+        (total, { amount, price }) => total + amount * price, 
+        0
+      );
+      
+      const totalValue = runningBalance + cryptoValue;
+      
+      // Éviter d'ajouter trop de points de données similaires
+      if (Math.abs(totalValue - lastCalculatedValue) > 10 || dateString === allDates[allDates.length - 1]) {
+        dataPoints.push({ 
+          date: dateString, 
+          value: totalValue,
+          formatted: formatCurrency(totalValue)
+        });
+        lastCalculatedValue = totalValue;
+      }
+    });
+    
+    // Ajouter le point final (aujourd'hui)
+    const today = formatDateShort(currentDate);
+    const totalValue = balance + portfolioValue;
+    
+    // Vérifier si nous avons déjà un point pour aujourd'hui
+    const hasToday = dataPoints.some(dp => dp.date === today);
+    
+    if (!hasToday) {
+      dataPoints.push({ 
+        date: "Aujourd'hui", 
+        value: totalValue,
+        formatted: formatCurrency(totalValue)
+      });
+    }
+    
+    return dataPoints;
+  }, [transactions, balance, portfolioValue]);
+  
+  // Composant personnalisé pour le tooltip du graphique
+  const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
+    if (active && payload && payload.length) {
+      const dataPoint = payload[0].payload as ChartDataPoint;
+      return (
+        <div className="bg-background/90 backdrop-blur-sm border border-border p-2 rounded-md shadow-md">
+          <p className="font-medium">{label}</p>
+          <p className="text-primary font-bold">{dataPoint.formatted || formatCurrency(dataPoint.value)}</p>
+          {payload[0].value !== undefined && payload[0].payload.previousValue !== undefined && (
+            <p className={payload[0].value > payload[0].payload.previousValue ? "text-green-500" : "text-red-500"}>
+              {payload[0].value > payload[0].payload.previousValue ? "+" : ""}
+              {((payload[0].value / payload[0].payload.previousValue - 1) * 100).toFixed(2)}%
+            </p>
+          )}
+        </div>
+      );
+    }
+    return null;
   };
 
   return (
@@ -142,14 +319,22 @@ export default function WalletPage() {
                     <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="date" />
-                <YAxis />
+                <XAxis 
+                  dataKey="date"
+                  tick={{ fontSize: 12 }}
+                  tickFormatter={(value) => value === "Aujourd'hui" ? value : value.split(' ')[0]}
+                />
+                <YAxis 
+                  tickFormatter={(value) => `$${Math.round(value / 1000)}k`}
+                  domain={['dataMin - 1000', 'dataMax + 1000']}
+                />
                 <CartesianGrid strokeDasharray="3 3" />
-                <Tooltip />
+                <Tooltip content={<CustomTooltip />} />
                 <Area
                   type="monotone"
                   dataKey="value"
                   stroke="hsl(var(--primary))"
+                  strokeWidth={2}
                   fillOpacity={1}
                   fill="url(#colorValue)"
                 />

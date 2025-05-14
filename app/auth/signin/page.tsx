@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { signIn, useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,48 @@ import Image from "next/image";
 const PORT = 3000;
 const NEXTAUTH_URL = `http://localhost:${PORT}`;
 
-export default function SignIn() {
+// Animation effect with glowing element
+const GlowingEffect = () => {
+  return (
+    <div className="absolute inset-0 overflow-hidden">
+      <div className="absolute -top-32 -left-32 w-96 h-96 bg-primary/30 rounded-full filter blur-3xl opacity-20 animate-pulse-slow"></div>
+      <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-accent/30 rounded-full filter blur-3xl opacity-20 animate-pulse-slow animation-delay-2000"></div>
+    </div>
+  );
+};
+
+// Loading component for Suspense fallback
+function SignInLoading() {
+  return (
+    <div className="min-h-screen relative flex flex-col items-center justify-center bg-gradient-to-b from-background to-background/90 overflow-hidden">
+      <GlowingEffect />
+      <div className="mb-12 relative z-10">
+        <Image
+          src="/COINIKO.gif"
+          alt="Logo"
+          width={200}
+          height={80}
+          priority
+          unoptimized
+          className="object-contain relative z-10 h-auto w-auto max-h-[80px]"
+          style={{ maxWidth: '200px' }}
+        />
+      </div>
+      <Card className="w-[400px] relative z-10 border border-border/50 bg-background/80 backdrop-blur-md shadow-xl overflow-hidden">
+        <CardHeader className="space-y-2 relative z-10">
+          <CardTitle className="text-3xl font-bold text-center">Chargement...</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6 relative z-10">
+          <div className="flex items-center justify-center h-20">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function SignInContent() {
   const router = useRouter();
   const { data: session, status } = useSession();
   const searchParams = useSearchParams();
@@ -43,16 +84,6 @@ export default function SignIn() {
       console.error("Error signing in with Google:", error);
       setIsLoading(false);
     }
-  };
-
-  // Animation effect with glowing element
-  const GlowingEffect = () => {
-    return (
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-32 -left-32 w-96 h-96 bg-primary/30 rounded-full filter blur-3xl opacity-20 animate-pulse-slow"></div>
-        <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-accent/30 rounded-full filter blur-3xl opacity-20 animate-pulse-slow animation-delay-2000"></div>
-      </div>
-    );
   };
 
   return (
@@ -151,5 +182,13 @@ export default function SignIn() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignIn() {
+  return (
+    <Suspense fallback={<SignInLoading />}>
+      <SignInContent />
+    </Suspense>
   );
 } 

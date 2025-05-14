@@ -5,8 +5,9 @@ import Link from "next/link";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
+import { Suspense } from "react";
 
-export default function ErrorPage() {
+function ErrorContent() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
 
@@ -75,5 +76,24 @@ export default function ErrorPage() {
         </CardFooter>
       </Card>
     </div>
+  );
+}
+
+export default function ErrorPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center">
+        <Card className="w-[450px] shadow-lg">
+          <CardHeader>
+            <CardTitle>Chargement...</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>Veuillez patienter pendant le chargement des informations d'erreur.</p>
+          </CardContent>
+        </Card>
+      </div>
+    }>
+      <ErrorContent />
+    </Suspense>
   );
 } 

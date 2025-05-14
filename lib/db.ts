@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 
 // PrismaClient is attached to the `global` object in development to prevent
 // exhausting your database connection limit.
@@ -42,31 +42,38 @@ if (directUrl) {
   console.error('DIRECT_URL is missing or empty!');
 }
 
-// Create Prisma client with enhanced error handling
+// Configuration de Prisma pour résoudre les problèmes de connexion
+const prismaClientOptions: Prisma.PrismaClientOptions = {
+  log: [
+    { level: 'error', emit: 'stdout' },
+    { level: 'warn', emit: 'stdout' }
+  ],
+  datasources: {
+    db: {
+      url: databaseUrl,
+    },
+  },
+};
+
+// Create a single PrismaClient instance
+// Nous désactivons complètement la réutilisation de la connexion pour éviter les erreurs
 let prisma: PrismaClient;
 
-// Check if we already have a connection to reuse
+// En production, on crée une nouvelle instance à chaque fois
 if (process.env.NODE_ENV === 'production') {
-  prisma = new PrismaClient({
-    log: ['error'],
-    datasources: {
-      db: {
-        url: databaseUrl,
-      },
-    },
-  });
+  prisma = new PrismaClient(prismaClientOptions);
 } else {
-  // In development, preserve connection across hot reloads
-  if (!globalForPrisma.prisma) {
-    globalForPrisma.prisma = new PrismaClient({
-      log: ['error', 'warn'],
-      datasources: {
-        db: {
-          url: databaseUrl,
-        },
-      },
-    });
+  // En développement, on supprime toute instance existante et on en crée une nouvelle
+  // C'est la clé pour éviter les erreurs de "prepared statement already exists"
+  if (globalForPrisma.prisma) {
+    // Force disconnect any existing connections
+    globalForPrisma.prisma.$disconnect();
   }
+  globalForPrisma.prisma = new PrismaClient({
+    ...prismaClientOptions,
+    // On ajoute des options pour rendre les requêtes plus robustes
+    errorFormat: 'pretty',
+  });
   prisma = globalForPrisma.prisma;
 }
 
@@ -77,6 +84,7 @@ if (process.env.NODE_ENV === 'production') {
     console.log('✅ Database connection successful');
   } catch (error) {
     console.error('❌ Database connection failed:', error);
+    console.error('Error details:', error instanceof Error ? error.message : String(error));
     console.log('WARNING: The app will function with limited features that do not require database access.');
   }
 })();

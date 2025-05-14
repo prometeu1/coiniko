@@ -4,7 +4,12 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { ArrowUpIcon, ArrowDownIcon, RefreshCw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { useWallet } from "@/lib/walletContext";
 import { getCryptoPrice, mapCoinMarketCapToGeckoId } from "@/lib/cryptoService";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface CryptoHoldingCardProps {
   id: string;
@@ -30,6 +35,9 @@ export function CryptoHoldingCard({
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string>(`https://s2.coinmarketcap.com/static/img/coins/64x64/${cryptoId}.png`);
+  const [amountToSell, setAmountToSell] = useState<string>("");
+  const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
+  const { sellCrypto } = useWallet();
 
   // Récupérer les données réelles de prix
   useEffect(() => {
@@ -94,6 +102,42 @@ export function CryptoHoldingCard({
     if (change > 0) return "text-green-500";
     if (change < 0) return "text-red-500";
     return "text-gray-500";
+  };
+
+  // Fonction pour gérer la vente de crypto
+  const handleSell = () => {
+    const amountNum = parseFloat(amountToSell);
+    if (isNaN(amountNum) || amountNum <= 0 || amountNum > amount) {
+      return;
+    }
+    
+    const success = sellCrypto(
+      cryptoId,
+      name,
+      symbol,
+      amountNum,
+      currentPrice
+    );
+    
+    if (success) {
+      setIsDialogOpen(false);
+      setAmountToSell("");
+    }
+  };
+
+  // Fonction pour vendre la totalité de la crypto
+  const handleSellAll = () => {
+    const success = sellCrypto(
+      cryptoId,
+      name,
+      symbol,
+      amount,
+      currentPrice
+    );
+    
+    if (success) {
+      setIsDialogOpen(false);
+    }
   };
 
   return (
@@ -176,6 +220,77 @@ export function CryptoHoldingCard({
               {profitLoss > 0 ? "+" : ""}{profitLossPercentage.toFixed(2)}% (${profitLoss.toFixed(2)})
             </div>
           </div>
+        </div>
+
+        {/* Boutons de vente */}
+        <div className="mt-4 flex gap-2">
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="flex-1">
+                Vendre
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Vendre {symbol}</DialogTitle>
+                <DialogDescription>
+                  Prix actuel: ${currentPrice.toFixed(2)}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="amount" className="text-right">
+                    Quantité
+                  </Label>
+                  <Input
+                    id="amount"
+                    type="number"
+                    placeholder={`Max: ${amount.toFixed(6)}`}
+                    value={amountToSell}
+                    onChange={(e) => setAmountToSell(e.target.value)}
+                    className="col-span-3"
+                    step="0.000001"
+                    min="0.000001"
+                    max={amount}
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="value" className="text-right">
+                    Valeur
+                  </Label>
+                  <div id="value" className="col-span-3">
+                    ${(parseFloat(amountToSell || "0") * currentPrice).toFixed(2)}
+                  </div>
+                </div>
+              </div>
+              <DialogFooter className="flex flex-col sm:flex-row gap-2">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={handleSellAll} 
+                  className="sm:order-1"
+                >
+                  Tout Vendre ({amount.toFixed(6)} {symbol})
+                </Button>
+                <Button 
+                  type="submit" 
+                  onClick={handleSell}
+                  disabled={!amountToSell || parseFloat(amountToSell) <= 0 || parseFloat(amountToSell) > amount}
+                  className="sm:order-2"
+                >
+                  Vendre
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          <Button 
+            variant="destructive" 
+            size="sm" 
+            className="flex-1"
+            onClick={handleSellAll}
+          >
+            Tout Vendre
+          </Button>
         </div>
       </CardContent>
     </Card>
