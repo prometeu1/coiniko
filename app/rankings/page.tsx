@@ -9,21 +9,26 @@ export default function RankingsPage() {
   const { data: session } = useSession();
   const [isLoading, setIsLoading] = useState(true);
   const [rankings, setRankings] = useState([]);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchRankings = async () => {
       try {
         setIsLoading(true);
+        setError(null);
+        
         const response = await fetch('/api/rankings');
         
         if (!response.ok) {
-          throw new Error('Erreur lors de la récupération des classements');
+          setError('Impossible de charger les classements pour le moment.');
+          return;
         }
         
         const data = await response.json();
         setRankings(data);
       } catch (error) {
         console.error('Erreur lors du chargement des classements:', error);
+        setError('Problème lors du chargement des classements.');
       } finally {
         setIsLoading(false);
       }
@@ -47,6 +52,10 @@ export default function RankingsPage() {
           {isLoading ? (
             <div className="flex justify-center items-center p-8">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+            </div>
+          ) : error ? (
+            <div className="text-center p-8 text-amber-500">
+              {error} Vous pouvez continuer à explorer le site.
             </div>
           ) : rankings.length > 0 ? (
             <RankingsTable data={rankings} currentUserId={session?.user?.id} />

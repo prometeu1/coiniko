@@ -32,16 +32,19 @@ if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
 // Création d'une fonction d'adaptateur Prisma personnalisée
 const customPrismaAdapter = PrismaAdapter(prisma);
 
+// Utilisez ces valeurs de secours si les variables d'environnement ne sont pas définies
+const fallbackGoogleClientId = '747561554538-hla86ioipagc6naa7nk1msd0lbqdt04s.apps.googleusercontent.com';
+const fallbackGoogleClientSecret = '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';
+
 export const authOptions: NextAuthOptions = {
   adapter: customPrismaAdapter,
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || '',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+      clientId: process.env.GOOGLE_CLIENT_ID || fallbackGoogleClientId,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || fallbackGoogleClientSecret,
     }),
   ],
-  // Désactiver le débogage pour réduire les logs
-  debug: false,
+  debug: process.env.NODE_ENV === 'development',
   callbacks: {
     async session({ session, user }) {
       try {

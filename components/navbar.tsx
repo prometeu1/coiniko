@@ -123,7 +123,7 @@ export default function Navbar() {
         </div>
 
         {/* Section droite - Actions utilisateur */}
-        <div className="flex items-center gap-2 w-[150px] justify-end">
+        <div className="flex items-center gap-3 w-[220px] justify-end">
           {status === "authenticated" && (
             <>
               {/* Wallet balance avec animation de pulse */}
@@ -131,20 +131,21 @@ export default function Navbar() {
                 <Button 
                   variant="outline" 
                   className="hidden sm:flex items-center gap-2 border border-accent/50 hover:border-accent/80 hover:bg-accent/5 neon-border"
+                  style={{ maxWidth: '140px' }}
                 >
-                  <Wallet size={16} className="text-accent animate-pulse-slow" />
-                  <span className="font-medium">${balance.toLocaleString()}</span>
+                  <Wallet size={16} className="text-accent animate-pulse-slow flex-shrink-0" />
+                  <span className="font-medium truncate">${balance.toLocaleString()}</span>
                 </Button>
               </Link>
             </>
           )}
 
-          {/* Bouton pour changer de thème */}
+          {/* Bouton pour changer de thème - toujours visible */}
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            className="rounded-full bg-primary/5 hover:bg-primary/10"
+            className="rounded-full bg-primary/5 hover:bg-primary/10 flex-shrink-0"
             aria-label="Toggle theme"
           >
             <Sun className="h-5 w-5 rotate-0 scale-100 text-accent transition-all dark:-rotate-90 dark:scale-0" />

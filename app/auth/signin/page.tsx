@@ -9,10 +9,6 @@ import { FaGoogle } from "react-icons/fa";
 import Link from "next/link";
 import Image from "next/image";
 
-// Utiliser le port 3000
-const PORT = 3000;
-const NEXTAUTH_URL = `http://localhost:${PORT}`;
-
 // Animation effect with glowing element
 const GlowingEffect = () => {
   return (
@@ -59,6 +55,22 @@ function SignInContent() {
   const { data: session, status } = useSession();
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [callbackUrl, setCallbackUrl] = useState<string>("");
+  
+  // Set callback URL when component mounts (client-side)
+  useEffect(() => {
+    const isLocalhost = window.location.hostname === 'localhost';
+    setCallbackUrl(isLocalhost ? 'http://localhost:3000' : window.location.origin);
+  }, []);
+
+  // Get error from URL if present
+  useEffect(() => {
+    const errorParam = searchParams.get('error');
+    if (errorParam) {
+      setError(`Erreur d'authentification: ${errorParam}`);
+    }
+  }, [searchParams]);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -69,19 +81,22 @@ function SignInContent() {
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
+    setError(null);
     
     try {
-      console.log("Trying to sign in with Google...");
+      console.log("Tentative de connexion avec Google...");
+      console.log("URL de callback:", callbackUrl);
       
       await signIn("google", {
         redirect: true,
-        callbackUrl: window.location.origin
+        callbackUrl: callbackUrl || "/"
       });
       
       // Cette partie ne sera pas exécutée avec redirect: true
       setIsLoading(false);
     } catch (error) {
-      console.error("Error signing in with Google:", error);
+      console.error("Erreur lors de la connexion avec Google:", error);
+      setError("Erreur de connexion. Veuillez réessayer.");
       setIsLoading(false);
     }
   };
@@ -116,6 +131,12 @@ function SignInContent() {
           <CardDescription className="text-center text-base">
             Connectez-vous pour accéder à votre portefeuille crypto
           </CardDescription>
+          
+          {error && (
+            <div className="mt-4 p-3 bg-destructive/10 text-destructive rounded-md text-sm">
+              {error}
+            </div>
+          )}
         </CardHeader>
         
         <CardContent className="space-y-6 relative z-10">

@@ -245,7 +245,7 @@ export function CryptoHoldingCard({
             }
           }}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="flex-1">
+              <Button variant="outline" size="sm" className="w-full">
                 Vendre
               </Button>
             </DialogTrigger>
@@ -386,14 +386,6 @@ export function CryptoHoldingCard({
               </DialogFooter>
             </DialogContent>
           </Dialog>
-          <Button 
-            variant="destructive" 
-            size="sm" 
-            className="flex-1"
-            onClick={handleSellAll}
-          >
-            Tout Vendre
-          </Button>
         </div>
       </CardContent>
     </Card>
