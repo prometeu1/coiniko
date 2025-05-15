@@ -224,7 +224,26 @@ export function CryptoHoldingCard({
 
         {/* Boutons de vente */}
         <div className="mt-4 flex gap-2">
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            setAmountToSell("");
+            
+            // Réinitialiser les affichages si la fenêtre s'ouvre
+            if (open) {
+              setTimeout(() => {
+                const percentageDisplay = document.getElementById('percentage-display-dialog');
+                if (percentageDisplay) percentageDisplay.textContent = '0%';
+                
+                const slider = document.getElementById('percentage-slider-dialog') as HTMLInputElement;
+                if (slider) slider.value = '0';
+                
+                // Réinitialiser l'état actif des boutons
+                document.querySelectorAll('.percentage-button-dialog').forEach(btn => {
+                  btn.classList.remove('active');
+                });
+              }, 50);
+            }
+          }}>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm" className="flex-1">
                 Vendre
@@ -242,50 +261,99 @@ export function CryptoHoldingCard({
                   <Label htmlFor="amount" className="text-right">
                     Quantité
                   </Label>
-                  <div className="col-span-3 flex gap-2">
+                  <div className="col-span-3">
                     <Input
                       id="amount"
                       type="number"
                       placeholder={`Max: ${amount.toFixed(6)}`}
                       value={amountToSell}
-                      onChange={(e) => setAmountToSell(e.target.value)}
-                      className="flex-1"
+                      onChange={(e) => {
+                        setAmountToSell(e.target.value);
+                        
+                        // Mettre à jour le slider en fonction du montant saisi
+                        const inputAmount = parseFloat(e.target.value) || 0;
+                        const percentage = Math.min(100, (inputAmount / amount) * 100);
+                        
+                        const slider = document.getElementById('percentage-slider-dialog') as HTMLInputElement;
+                        if (slider) slider.value = percentage.toString();
+                        
+                        // Mettre à jour l'affichage du pourcentage
+                        const percentageDisplay = document.getElementById('percentage-display-dialog');
+                        if (percentageDisplay) percentageDisplay.textContent = `${Math.round(percentage)}%`;
+                      }}
+                      className="w-full"
                       step="0.000001"
                       min="0.000001"
                       max={amount}
                     />
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => setAmountToSell(amount.toFixed(6))}
-                      className="whitespace-nowrap"
-                    >
-                      Max
-                    </Button>
                   </div>
                 </div>
                 
                 {/* Barre de pourcentage */}
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="percentage-slider" className="text-right text-sm">
-                    Pourcentage
-                  </Label>
-                  <div className="col-span-3 flex items-center gap-2">
+                  <div className="text-right text-sm flex flex-col items-end">
+                    <Label htmlFor="percentage-slider-dialog" className="text-right text-sm mb-1">
+                      Pourcentage
+                    </Label>
+                    <span id="percentage-display-dialog" className="percentage-display">0%</span>
+                  </div>
+                  <div className="col-span-3">
                     <input
-                      id="percentage-slider"
+                      id="percentage-slider-dialog"
                       type="range"
                       min="0"
                       max="100"
                       step="1"
-                      className="flex-1 h-2 bg-accent/20 rounded-lg appearance-none cursor-pointer"
+                      className="w-full h-2 rounded-lg appearance-none cursor-pointer"
                       onChange={(e) => {
                         const percentage = parseInt(e.target.value);
                         const calculatedAmount = (amount * percentage) / 100;
                         setAmountToSell(calculatedAmount.toFixed(6));
+                        
+                        // Mettre à jour l'affichage du pourcentage
+                        const percentageDisplay = document.getElementById('percentage-display-dialog');
+                        if (percentageDisplay) percentageDisplay.textContent = `${percentage}%`;
+                        
+                        // Réinitialiser l'état actif des boutons
+                        document.querySelectorAll('.percentage-button-dialog').forEach(btn => {
+                          btn.classList.remove('active');
+                        });
                       }}
                     />
-                    <span className="text-sm font-medium w-8 text-right">%</span>
+                    
+                    {/* Boutons de pourcentage prédéfinis */}
+                    <div className="percentage-button-container">
+                      {[10, 25, 50, 100].map((percent) => (
+                        <Button
+                          key={percent}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="percentage-button percentage-button-dialog"
+                          onClick={() => {
+                            // Calculer le montant
+                            const calculatedAmount = (amount * percent) / 100;
+                            setAmountToSell(calculatedAmount.toFixed(6));
+                            
+                            // Mettre à jour le slider
+                            const slider = document.getElementById('percentage-slider-dialog') as HTMLInputElement;
+                            if (slider) slider.value = percent.toString();
+                            
+                            // Mettre à jour l'affichage du pourcentage
+                            const percentageDisplay = document.getElementById('percentage-display-dialog');
+                            if (percentageDisplay) percentageDisplay.textContent = `${percent}%`;
+                            
+                            // Ajouter la classe active au bouton cliqué et la retirer des autres
+                            document.querySelectorAll('.percentage-button-dialog').forEach(btn => {
+                              btn.classList.remove('active');
+                            });
+                            (document.activeElement as HTMLElement).classList.add('active');
+                          }}
+                        >
+                          {percent}%
+                        </Button>
+                      ))}
+                    </div>
                   </div>
                 </div>
                 

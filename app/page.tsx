@@ -126,119 +126,94 @@ export default function Page() {
     },
     {
       accessorKey: "price",
-      header: ({ column }) => (
-        <Button 
-          variant="ghost" 
-          className="hover:bg-primary/10" 
-          onClick={() => column.toggleSorting()}
-        >
-          <DollarSign className="h-4 w-4 text-primary mr-1" />
-          Prix (USD)
-          <ArrowUpDown className="ml-1 h-3 w-3 text-muted-foreground" />
-        </Button>
+      header: () => (
+        <div className="text-right font-medium w-full">
+          Prix
+        </div>
       ),
       cell: ({ row }) => {
         const price = row.getValue("price");
+        const formattedPrice = typeof price === "number" 
+          ? price >= 1 
+            ? price.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+            : price.toFixed(4)
+          : "0.00";
         return (
-          <div className="text-right font-medium">
-            ${typeof price === "number" ? price.toFixed(2) : "0.00"}
+          <div className="w-full text-right crypto-price">
+            {formattedPrice} $US
           </div>
         );
       },
     },
     {
       accessorKey: "percent_change_1h",
-      header: ({ column }) => (
-        <Button 
-          variant="ghost" 
-          className="hover:bg-primary/10" 
-          onClick={() => column.toggleSorting()}
-        >
-          1H %
-          <ArrowUpDown className="ml-1 h-3 w-3 text-muted-foreground" />
-        </Button>
+      header: () => (
+        <div className="text-right font-medium w-full">
+          1h %
+        </div>
       ),
       cell: ({ row }) => {
         const change = row.getValue("percent_change_1h");
         const isPositive = typeof change === "number" && change >= 0;
 
         return (
-          <div className="text-right flex items-center justify-end">
+          <div className={`w-full text-right ${isPositive ? 'crypto-percent-positive' : 'crypto-percent-negative'}`}>
             {isPositive ? (
-              <TrendingUp className="h-3 w-3 mr-1 text-green-500" />
+              <span>↗ {typeof change === "number" ? `${change.toFixed(2)}%` : "N/A"}</span>
             ) : (
-              <TrendingDown className="h-3 w-3 mr-1 text-red-500" />
+              <span>↘ {typeof change === "number" ? `${Math.abs(Number(change)).toFixed(2)}%` : "N/A"}</span>
             )}
-            <span className={isPositive ? "text-green-500" : "text-red-500"}>
-              {typeof change === "number" ? `${change.toFixed(2)}%` : "N/A"}
-            </span>
           </div>
         );
       },
     },
     {
       accessorKey: "percent_change_24h",
-      header: ({ column }) => (
-        <Button 
-          variant="ghost" 
-          className="hover:bg-primary/10" 
-          onClick={() => column.toggleSorting()}
-        >
-          24H %
-          <ArrowUpDown className="ml-1 h-3 w-3 text-muted-foreground" />
-        </Button>
+      header: () => (
+        <div className="text-right font-medium w-full">
+          % 24h
+        </div>
       ),
       cell: ({ row }) => {
         const change = row.original.percent_change_24h;
         const isPositive = typeof change === "number" && change >= 0;
 
         return (
-          <div className="text-right flex items-center justify-end">
+          <div className={`w-full text-right ${isPositive ? 'crypto-percent-positive' : 'crypto-percent-negative'}`}>
             {isPositive ? (
-              <TrendingUp className="h-3 w-3 mr-1 text-green-500" />
+              <span>↗ {typeof change === "number" ? `${change.toFixed(2)}%` : "N/A"}</span>
             ) : (
-              <TrendingDown className="h-3 w-3 mr-1 text-red-500" />
+              <span>↘ {typeof change === "number" ? `${Math.abs(Number(change)).toFixed(2)}%` : "N/A"}</span>
             )}
-            <span className={isPositive ? "text-green-500" : "text-red-500"}>
-              {typeof change === "number" ? `${change.toFixed(2)}%` : "N/A"}
-            </span>
           </div>
         );
       },
     },
     {
       accessorKey: "percent_change_7d",
-      header: ({ column }) => (
-        <Button 
-          variant="ghost" 
-          className="hover:bg-primary/10" 
-          onClick={() => column.toggleSorting()}
-        >
-          7J %
-          <ArrowUpDown className="ml-1 h-3 w-3 text-muted-foreground" />
-        </Button>
+      header: () => (
+        <div className="text-right font-medium w-full">
+          % 7j
+        </div>
       ),
       cell: ({ row }) => {
         const change = row.original.percent_change_7d;
         const isPositive = typeof change === "number" && change >= 0;
 
         return (
-          <div className="text-right flex items-center justify-end">
+          <div className={`w-full text-right ${isPositive ? 'crypto-percent-positive' : 'crypto-percent-negative'}`}>
             {isPositive ? (
-              <TrendingUp className="h-3 w-3 mr-1 text-green-500" />
+              <span>↗ {typeof change === "number" ? `${change.toFixed(2)}%` : "N/A"}</span>
             ) : (
-              <TrendingDown className="h-3 w-3 mr-1 text-red-500" />
+              <span>↘ {typeof change === "number" ? `${Math.abs(Number(change)).toFixed(2)}%` : "N/A"}</span>
             )}
-            <span className={isPositive ? "text-green-500" : "text-red-500"}>
-              {typeof change === "number" ? `${change.toFixed(2)}%` : "N/A"}
-            </span>
           </div>
         );
       },
     },
     {
       id: "holdings",
-      header: "Vos Actifs",
+      header: () => <div className="table-header-center">Vos Actifs</div>,
       cell: ({ row }) => {
         const crypto = row.original;
         const holding = getCryptoHolding(crypto.id.toString());
@@ -253,7 +228,7 @@ export default function Page() {
         }, [holding]);
         
         return (
-          <div className="text-right">
+          <div className="text-center flex flex-col items-center justify-center w-full">
             {localHoldingVisible && holding ? (
               <div>
                 <div className="font-medium">{holding.amount.toFixed(6)} {crypto.symbol}</div>
@@ -270,13 +245,13 @@ export default function Page() {
     },
     {
       id: "actions",
-      header: "Actions",
+      header: () => <div className="table-header-center">Actions</div>,
       cell: ({ row }) => {
         const crypto = row.original;
         const holding = getCryptoHolding(crypto.id);
         
         return (
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-center items-center w-full gap-2">
             <Button 
               variant="ghost" 
               size="icon" 
@@ -372,6 +347,20 @@ export default function Page() {
     }
     
     setIsTradeModalOpen(true);
+    
+    // Réinitialiser les affichages de pourcentage et le slider
+    setTimeout(() => {
+      const percentageDisplay = document.getElementById('percentage-display');
+      if (percentageDisplay) percentageDisplay.textContent = '0%';
+      
+      const slider = document.getElementById('percentage-slider') as HTMLInputElement;
+      if (slider) slider.value = '0';
+      
+      // Réinitialiser l'état actif des boutons
+      document.querySelectorAll('.percentage-button').forEach(btn => {
+        btn.classList.remove('active');
+      });
+    }, 50);
   };
 
   // Calculate total value based on amount
@@ -485,7 +474,7 @@ export default function Page() {
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-primary/20 rounded-full blur-3xl -z-10 opacity-70 animate-pulse-slow"></div>
         
         <div className="max-w-3xl mx-auto text-center">
-          <h1 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+          <h1 className="page-title page-title-gradient">
             Marché des Cryptomonnaies
           </h1>
           <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
@@ -517,7 +506,7 @@ export default function Page() {
       </div>
       
       {/* Table */}
-      <div className="rounded-xl border border-border/50 bg-card/30 backdrop-blur-sm overflow-hidden animate-slide-up transition-all shadow-sm">
+      <div className="crypto-table-container animate-slide-up">
         {isLoading ? (
           <div className="flex items-center justify-center h-72">
             <div className="flex flex-col items-center">
@@ -531,13 +520,13 @@ export default function Page() {
             </div>
           </div>
         ) : (
-          <Table className="data-table">
+          <Table className="crypto-table">
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id} className="hover:bg-transparent border-b border-border/50">
+                <TableRow key={headerGroup.id} className="hover:bg-transparent border-b border-border/30">
                   {headerGroup.headers.map((header) => {
                     return (
-                      <TableHead key={header.id} className="py-4">
+                      <TableHead key={header.id} className="py-3">
                         {header.isPlaceholder
                           ? null
                           : flexRender(
@@ -655,27 +644,6 @@ export default function Page() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label htmlFor="amount">Quantité</Label>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => {
-                    if (tradeType === 'buy' && selectedCrypto) {
-                      // Acheter au maximum possible avec la balance disponible
-                      const maxAmount = balance / selectedCrypto.price;
-                      setAmount(maxAmount.toFixed(6));
-                    } else if (tradeType === 'sell' && selectedCrypto) {
-                      // Vendre tout ce qu'on possède
-                      const holding = getCryptoHolding(selectedCrypto.id.toString());
-                      if (holding) {
-                        setAmount(holding.amount.toFixed(6));
-                      }
-                    }
-                  }}
-                  className="h-8 px-2 text-xs"
-                >
-                  Max
-                </Button>
               </div>
               <Input
                 id="amount"
@@ -683,42 +651,111 @@ export default function Page() {
                 step="0.000001"
                 min="0"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => {
+                  setAmount(e.target.value);
+                  
+                  // Mettre à jour le slider en fonction du montant saisi
+                  if (tradeType === 'buy' && selectedCrypto) {
+                    const maxAmount = balance / selectedCrypto.price;
+                    const inputAmount = parseFloat(e.target.value) || 0;
+                    const percentage = Math.min(100, (inputAmount / maxAmount) * 100);
+                    
+                    const slider = document.getElementById('percentage-slider') as HTMLInputElement;
+                    if (slider) slider.value = percentage.toString();
+                  } else if (tradeType === 'sell' && selectedCrypto) {
+                    const holding = getCryptoHolding(selectedCrypto.id.toString());
+                    if (holding) {
+                      const inputAmount = parseFloat(e.target.value) || 0;
+                      const percentage = Math.min(100, (inputAmount / holding.amount) * 100);
+                      
+                      const slider = document.getElementById('percentage-slider') as HTMLInputElement;
+                      if (slider) slider.value = percentage.toString();
+                    }
+                  }
+                }}
                 placeholder={`Quantité de ${selectedCrypto?.symbol}`}
                 className="border-accent/20 focus-visible:ring-accent"
               />
               
               {/* Barre de pourcentage */}
               <div className="space-y-2">
-                <Label htmlFor="percentage-slider" className="text-sm text-muted-foreground">
-                  Pourcentage {tradeType === 'buy' ? 'de la balance' : 'de vos actifs'}
-                </Label>
-                <div className="flex items-center gap-2">
-                  <input
-                    id="percentage-slider"
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="1"
-                    className="w-full h-2 bg-accent/20 rounded-lg appearance-none cursor-pointer"
-                    onChange={(e) => {
-                      const percentage = parseInt(e.target.value);
-                      if (tradeType === 'buy' && selectedCrypto) {
-                        // Calculer le montant basé sur un pourcentage de la balance
-                        const maxAmount = balance / selectedCrypto.price;
-                        const calculatedAmount = (maxAmount * percentage) / 100;
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="percentage-slider" className="text-sm text-muted-foreground">
+                    Pourcentage {tradeType === 'buy' ? 'de la balance' : 'de vos actifs'}
+                  </Label>
+                  <span className="percentage-display" id="percentage-display">0%</span>
+                </div>
+                <input
+                  id="percentage-slider"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                  onChange={(e) => {
+                    const percentage = parseInt(e.target.value);
+                    // Mettre à jour l'affichage du pourcentage
+                    const percentageDisplay = document.getElementById('percentage-display');
+                    if (percentageDisplay) percentageDisplay.textContent = `${percentage}%`;
+                    
+                    if (tradeType === 'buy' && selectedCrypto) {
+                      // Calculer le montant basé sur un pourcentage de la balance
+                      const maxAmount = balance / selectedCrypto.price;
+                      const calculatedAmount = (maxAmount * percentage) / 100;
+                      setAmount(calculatedAmount.toFixed(6));
+                    } else if (tradeType === 'sell' && selectedCrypto) {
+                      // Calculer le montant basé sur un pourcentage des actifs
+                      const holding = getCryptoHolding(selectedCrypto.id.toString());
+                      if (holding) {
+                        const calculatedAmount = (holding.amount * percentage) / 100;
                         setAmount(calculatedAmount.toFixed(6));
-                      } else if (tradeType === 'sell' && selectedCrypto) {
-                        // Calculer le montant basé sur un pourcentage des actifs
-                        const holding = getCryptoHolding(selectedCrypto.id.toString());
-                        if (holding) {
-                          const calculatedAmount = (holding.amount * percentage) / 100;
-                          setAmount(calculatedAmount.toFixed(6));
-                        }
                       }
-                    }}
-                  />
-                  <span className="text-sm font-medium w-8 text-right">%</span>
+                    }
+                  }}
+                />
+                
+                {/* Boutons de pourcentage prédéfinis */}
+                <div className="percentage-button-container">
+                  {[10, 25, 50, 100].map((percent) => (
+                    <Button
+                      key={percent}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="percentage-button"
+                      onClick={() => {
+                        // Mettre à jour le slider
+                        const slider = document.getElementById('percentage-slider') as HTMLInputElement;
+                        if (slider) slider.value = percent.toString();
+                        
+                        // Mettre à jour l'affichage du pourcentage
+                        const percentageDisplay = document.getElementById('percentage-display');
+                        if (percentageDisplay) percentageDisplay.textContent = `${percent}%`;
+                        
+                        // Ajouter la classe active au bouton cliqué et la retirer des autres
+                        document.querySelectorAll('.percentage-button').forEach(btn => {
+                          btn.classList.remove('active');
+                        });
+                        (document.activeElement as HTMLElement).classList.add('active');
+                        
+                        if (tradeType === 'buy' && selectedCrypto) {
+                          // Calculer le montant basé sur un pourcentage de la balance
+                          const maxAmount = balance / selectedCrypto.price;
+                          const calculatedAmount = (maxAmount * percent) / 100;
+                          setAmount(calculatedAmount.toFixed(6));
+                        } else if (tradeType === 'sell' && selectedCrypto) {
+                          // Calculer le montant basé sur un pourcentage des actifs
+                          const holding = getCryptoHolding(selectedCrypto.id.toString());
+                          if (holding) {
+                            const calculatedAmount = (holding.amount * percent) / 100;
+                            setAmount(calculatedAmount.toFixed(6));
+                          }
+                        }
+                      }}
+                    >
+                      {percent}%
+                    </Button>
+                  ))}
                 </div>
               </div>
             </div>
