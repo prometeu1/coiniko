@@ -92,33 +92,28 @@ export default function Page() {
   const columns: ColumnDef<Crypto>[] = [
     {
       accessorKey: "name",
-      header: "Nom",
+      header: () => <div>Nom</div>,
       cell: ({ row }) => {
-        const id = row.original.id;
-        const name = row.original.name;
-        const symbol = row.original.symbol;
-        const rank = row.original.cmc_rank;
-
+        const crypto = row.original;
         return (
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <div className="absolute inset-0 bg-accent/20 rounded-full blur-sm opacity-70"></div>
+          <div className="flex items-center cursor-pointer" onClick={() => window.location.href = `/crypto/${crypto.id}`}>
+            <div className="relative w-8 h-8 mr-3">
               <Image
-                src={`https://s2.coinmarketcap.com/static/img/coins/64x64/${id}.png`}
-                alt={name}
+                src={`https://s2.coinmarketcap.com/static/img/coins/64x64/${crypto.id}.png`}
+                alt={crypto.name}
                 width={32}
                 height={32}
-                className="w-8 h-8 relative z-10"
+                className="crypto-logo"
+                onError={(e) => {
+                  // Fallback if image fails to load
+                  const target = e.target as HTMLImageElement;
+                  target.src = `https://placehold.co/32x32/3b82f6/FFFFFF?text=${crypto.symbol.substring(0, 3)}`;
+                }}
               />
             </div>
             <div>
-              <div className="font-medium">{name}</div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">{symbol}</span>
-                <Badge variant="outline" className="h-5 text-[10px] px-1 border-muted-foreground/30">
-                  #{rank}
-                </Badge>
-              </div>
+              <div className="font-medium hover:text-primary hover:underline transition-colors">{crypto.name}</div>
+              <div className="text-sm text-muted-foreground">{crypto.symbol}</div>
             </div>
           </div>
         );

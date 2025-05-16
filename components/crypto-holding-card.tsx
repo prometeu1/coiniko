@@ -48,10 +48,11 @@ export function CryptoHoldingCard({
         // Convertir l'ID de CoinMarketCap en ID CoinGecko
         const geckoId = mapCoinMarketCapToGeckoId(cryptoId);
         
-        // Récupérer les données de prix
+        // Récupérer les données de prix réelles
         const priceData = await getCryptoPrice(geckoId);
         
         if (priceData) {
+          // Utiliser les prix réels sans aucune limitation
           setCurrentPrice(priceData.current_price);
           setPriceChange(priceData.price_change_percentage_24h);
           
@@ -60,23 +61,18 @@ export function CryptoHoldingCard({
             setImageUrl(priceData.image);
           }
         } else {
-          // Fallback à la simulation si l'API ne retourne pas de données
-          const randomVariation = (Math.random() * 0.4) - 0.2; // -0.2 à +0.2
-          const newPrice = purchasePrice * (1 + randomVariation);
-          
-          setCurrentPrice(newPrice);
-          setPriceChange(randomVariation * 100);
+          console.log(`Pas de données de prix pour ${name}, conservation du prix d'achat`);
+          // Si pas de données, conserver le prix d'achat mais sans changement
+          setCurrentPrice(purchasePrice);
+          setPriceChange(0);
         }
       } catch (err) {
         console.error("Erreur lors du chargement des données de prix:", err);
         setError("Erreur lors du chargement des données");
         
-        // Fallback en cas d'erreur
-        const randomVariation = (Math.random() * 0.4) - 0.2;
-        const newPrice = purchasePrice * (1 + randomVariation);
-        
-        setCurrentPrice(newPrice);
-        setPriceChange(randomVariation * 100);
+        // En cas d'erreur, conserver le prix d'achat
+        setCurrentPrice(purchasePrice);
+        setPriceChange(0);
       } finally {
         setIsLoading(false);
       }
@@ -84,11 +80,11 @@ export function CryptoHoldingCard({
     
     fetchRealPrice();
     
-    // Mettre à jour les prix toutes les 60 secondes
-    const intervalId = setInterval(fetchRealPrice, 60000);
+    // Mettre à jour les prix toutes les 10 secondes pour avoir des données plus à jour
+    const intervalId = setInterval(fetchRealPrice, 10000);
     
     return () => clearInterval(intervalId);
-  }, [cryptoId, purchasePrice]);
+  }, [cryptoId, purchasePrice, name]);
 
   // Calculer la valeur actuelle et la variation
   const currentValue = amount * currentPrice;
@@ -143,7 +139,7 @@ export function CryptoHoldingCard({
   return (
     <Card className="hover-card overflow-hidden">
       <CardContent className="p-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between cursor-pointer" onClick={() => window.location.href = `/crypto/${cryptoId}`}>
           <div className="flex items-center space-x-3">
             {/* Logo de la crypto */}
             <div className="relative w-10 h-10 flex-shrink-0">
@@ -163,7 +159,7 @@ export function CryptoHoldingCard({
 
             {/* Nom et symbole */}
             <div>
-              <h3 className="font-medium text-foreground">{name}</h3>
+              <h3 className="font-medium text-foreground hover:text-primary hover:underline transition-colors">{name}</h3>
               <p className="text-sm text-muted-foreground">{symbol}</p>
             </div>
           </div>

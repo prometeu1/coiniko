@@ -29,15 +29,36 @@ if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
   console.error('Veuillez vérifier votre fichier .env et les valeurs dans Google Cloud Console');
 }
 
-// Création d'une fonction d'adaptateur Prisma personnalisée
-const customPrismaAdapter = PrismaAdapter(prisma);
-
 // Utilisez ces valeurs de secours si les variables d'environnement ne sont pas définies
 const fallbackGoogleClientId = '747561554538-hla86ioipagc6naa7nk1msd0lbqdt04s.apps.googleusercontent.com';
 const fallbackGoogleClientSecret = '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';
 
+// Utilisé par l'adaptateur Prisma
+const createNewPortfolio = async (userId: string) => {
+  try {
+    const existingPortfolio = await prisma.portfolios.findFirst({
+      where: { user_id: userId },
+    });
+
+    if (!existingPortfolio) {
+      console.log(`Création d'un nouveau portefeuille pour l'utilisateur ${userId}`);
+      await prisma.portfolios.create({
+        data: {
+          user_id: userId,
+          balance: 100000,
+        },
+      });
+      console.log('Portfolio created successfully');
+    }
+    return true;
+  } catch (error) {
+    console.error("Erreur lors de la création du portefeuille:", error);
+    return false;
+  }
+};
+
 export const authOptions: NextAuthOptions = {
-  adapter: customPrismaAdapter,
+  adapter: PrismaAdapter(prisma),
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || fallbackGoogleClientId,
@@ -58,40 +79,15 @@ export const authOptions: NextAuthOptions = {
         return session;
       }
     },
-    async signIn({ user, account, profile }) {
+    async signIn({ user }) {
       try {
         if (!user?.id) {
           console.log('No user ID found, but allowing sign-in');
           return true;
         }
         
-        // Vérifier si l'utilisateur a déjà un portefeuille
-        try {
-          const existingPortfolio = await prisma.portfolios.findFirst({
-            where: { user_id: user.id },
-          });
-
-          if (!existingPortfolio) {
-            console.log(`Création d'un nouveau portefeuille pour l'utilisateur ${user.id}`);
-            
-            try {
-              // Créer un nouveau portefeuille avec 10000$ de départ
-              await prisma.portfolios.create({
-                data: {
-                  user_id: user.id,
-                  balance: 10000,
-                },
-              });
-              console.log('Portfolio created successfully');
-            } catch (portfolioError) {
-              console.error("Erreur lors de la création du portefeuille:", portfolioError);
-              // On continue quand même
-            }
-          }
-        } catch (dbError) {
-          console.error("Erreur de base de données lors du portfolio check:", dbError);
-          // On continue quand même
-        }
+        // Créer un portefeuille pour l'utilisateur si nécessaire
+        await createNewPortfolio(user.id);
         
         return true;
       } catch (error) {
@@ -108,23 +104,7 @@ export const authOptions: NextAuthOptions = {
         await new Promise(resolve => setTimeout(resolve, 500));
         
         // Créer un portefeuille pour le nouvel utilisateur
-        try {
-          const existingPortfolio = await prisma.portfolios.findFirst({
-            where: { user_id: message.user.id },
-          });
-          
-          if (!existingPortfolio) {
-            await prisma.portfolios.create({
-              data: {
-                user_id: message.user.id,
-                balance: 10000,
-              },
-            });
-            console.log(`Portfolio created for new user ${message.user.id}`);
-          }
-        } catch (dbError) {
-          console.error("Erreur de base de données lors de la création du portefeuille:", dbError);
-        }
+        await createNewPortfolio(message.user.id);
       } catch (error) {
         console.error("Erreur globale lors de la création du portefeuille:", error);
       }

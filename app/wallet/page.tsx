@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { 
@@ -12,6 +12,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWallet } from "@/lib/walletContext";
+import { getCryptoPrice, mapCoinMarketCapToGeckoId } from "@/lib/cryptoService";
 import {
   Area,
   AreaChart as RechartsAreaChart,
@@ -28,15 +29,58 @@ import CryptoHoldingCard from "@/components/crypto-holding-card";
 interface ChartDataPoint {
   date: string;
   value: number;
+  previousValue?: number;
   formatted?: string;
 }
 
 export default function WalletPage() {
   const { balance, holdings, transactions } = useWallet();
+  const [currentPrices, setCurrentPrices] = useState<Record<string, number>>({});
+  const [isLoading, setIsLoading] = useState(true);
   
-  // Calculate total portfolio value
+  // Fetch current prices for all holdings
+  useEffect(() => {
+    const fetchCurrentPrices = async () => {
+      setIsLoading(true);
+      const prices: Record<string, number> = {};
+      
+      for (const holding of holdings) {
+        try {
+          const geckoId = mapCoinMarketCapToGeckoId(holding.cryptoId);
+          // Récupérer le prix réel sans limitation
+          const priceData = await getCryptoPrice(geckoId);
+          
+          if (priceData) {
+            // Utiliser le prix réel du marché sans aucune limitation
+            prices[holding.cryptoId] = priceData.current_price;
+          } else {
+            // Si pas de prix disponible, utiliser le prix d'achat
+            prices[holding.cryptoId] = holding.purchasePrice;
+          }
+        } catch (err) {
+          console.error(`Error fetching price for ${holding.name}:`, err);
+          // En cas d'erreur, utiliser le prix d'achat
+          prices[holding.cryptoId] = holding.purchasePrice;
+        }
+      }
+      
+      setCurrentPrices(prices);
+      setIsLoading(false);
+    };
+    
+    fetchCurrentPrices();
+    
+    // Refresh prices every 10 seconds
+    const interval = setInterval(fetchCurrentPrices, 10000);
+    return () => clearInterval(interval);
+  }, [holdings]);
+  
+  // Calculate total portfolio value using current prices
   const portfolioValue = holdings.reduce(
-    (total, holding) => total + holding.amount * holding.purchasePrice,
+    (total, holding) => {
+      const currentPrice = currentPrices[holding.cryptoId] || holding.purchasePrice;
+      return total + holding.amount * currentPrice;
+    },
     0
   );
 
@@ -118,12 +162,15 @@ export default function WalletPage() {
     }).format(value);
   };
 
-  // Générer des données de graphique basées sur les transactions réelles
+  // Générer des données de graphique basées sur les transactions réelles et les prix actuels
   const portfolioChartData = useMemo(() => {
     if (transactions.length === 0) {
-      // Si aucune transaction, montrer seulement la balance initiale
+      // Si aucune transaction, montrer la balance initiale avec une courbe plate
+      const initialValue = balance;
       return [
-        { date: "Aujourd'hui", value: 10000, formatted: "10 000 $" }
+        { date: formatDateShort(new Date(Date.now() - 60 * 24 * 60 * 60 * 1000)), value: initialValue, formatted: formatCurrency(initialValue) },
+        { date: formatDateShort(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)), value: initialValue, formatted: formatCurrency(initialValue) },
+        { date: "Aujourd'hui", value: initialValue, formatted: formatCurrency(initialValue) }
       ];
     }
 
@@ -137,11 +184,14 @@ export default function WalletPage() {
     // Créer un tableau pour stocker les valeurs du portefeuille au fil du temps
     const dataPoints: ChartDataPoint[] = [];
     
-    // Commencer avec la balance initiale de 10000
-    let runningBalance = 10000;
-    let cryptoHoldings: Record<string, { amount: number, price: number }> = {};
+    // Commencer avec la balance initiale
+    const initialBalance = 100000; // Solde de départ standard
     
-    // Ajouter le point de départ (10000 $)
+    // Commencer avec la balance initiale
+    let runningBalance = initialBalance;
+    let cryptoHoldings: Record<string, { amount: number, price: number, cryptoId: string }> = {};
+    
+    // Ajouter le point de départ
     dataPoints.push({ 
       date: formatDateShort(firstTransactionDate), 
       value: runningBalance,
@@ -160,7 +210,7 @@ export default function WalletPage() {
     // Pour chaque date, calculer la valeur du portefeuille
     let lastCalculatedValue = runningBalance;
     
-    allDates.forEach(dateString => {
+    allDates.forEach((dateString, index) => {
       const date = parseDate(dateString);
       
       // Appliquer toutes les transactions jusqu'à cette date
@@ -174,10 +224,13 @@ export default function WalletPage() {
             
             // Ajouter à nos avoirs crypto
             if (!cryptoHoldings[transaction.cryptoId]) {
-              cryptoHoldings[transaction.cryptoId] = { amount: 0, price: 0 };
+              cryptoHoldings[transaction.cryptoId] = { 
+                amount: 0, 
+                price: transaction.price,
+                cryptoId: transaction.cryptoId
+              };
             }
             cryptoHoldings[transaction.cryptoId].amount += transaction.amount;
-            cryptoHoldings[transaction.cryptoId].price = transaction.price;
           } else if (transaction.type === 'sell') {
             runningBalance += transaction.amount * transaction.price;
             
@@ -189,42 +242,68 @@ export default function WalletPage() {
         }
       });
       
-      // Calculer la valeur totale (balance + valeur des cryptos détenues)
-      const cryptoValue = Object.values(cryptoHoldings).reduce(
-        (total, { amount, price }) => total + amount * price, 
-        0
-      );
+      // Calculer la valeur totale (balance + valeur des cryptos détenues) avec les prix réels
+      const cryptoValue = Object.values(cryptoHoldings).reduce((total, holding) => {
+        if (holding.amount <= 0) return total;
+        
+        // Pour la date d'aujourd'hui, utiliser le prix actuel si disponible
+        let price = holding.price;
+        if (dateString === "Aujourd'hui" || dateString === formatDateShort(currentDate)) {
+          // Utiliser le prix actuel du marché
+          price = currentPrices[holding.cryptoId] || holding.price;
+        }
+        
+        return total + holding.amount * price;
+      }, 0);
       
       const totalValue = runningBalance + cryptoValue;
       
-      // Éviter d'ajouter trop de points de données similaires
-      if (Math.abs(totalValue - lastCalculatedValue) > 10 || dateString === allDates[allDates.length - 1]) {
+      // Ajouter des points de données plus fréquemment
+      if (Math.abs(totalValue - lastCalculatedValue) > 100 || 
+          index === 0 || 
+          index === allDates.length - 1 || 
+          index % 2 === 0) {
+        
+        // Stocker la valeur précédente pour calculer le % de changement dans le tooltip
+        const previousValue = dataPoints.length > 0 ? dataPoints[dataPoints.length - 1].value : undefined;
+        
         dataPoints.push({ 
           date: dateString, 
           value: totalValue,
+          previousValue,
           formatted: formatCurrency(totalValue)
         });
         lastCalculatedValue = totalValue;
       }
     });
     
-    // Ajouter le point final (aujourd'hui)
-    const today = formatDateShort(currentDate);
-    const totalValue = balance + portfolioValue;
+    // Ajuster le dernier point pour qu'il corresponde exactement à la valeur actuelle du portefeuille
+    const finalValue = balance + portfolioValue;
     
-    // Vérifier si nous avons déjà un point pour aujourd'hui
-    const hasToday = dataPoints.some(dp => dp.date === today);
+    // Ajouter le point final (aujourd'hui) avec le prix actuel réel
+    const today = formatDateShort(currentDate);
+    const hasToday = dataPoints.some(dp => dp.date === today || dp.date === "Aujourd'hui");
     
     if (!hasToday) {
+      const previousValue = dataPoints.length > 0 ? dataPoints[dataPoints.length - 1].value : undefined;
+      
       dataPoints.push({ 
         date: "Aujourd'hui", 
-        value: totalValue,
-        formatted: formatCurrency(totalValue)
+        value: finalValue,
+        previousValue,
+        formatted: formatCurrency(finalValue)
       });
+    } else {
+      // Mettre à jour le point d'aujourd'hui avec la valeur réelle
+      const todayIndex = dataPoints.findIndex(dp => dp.date === today || dp.date === "Aujourd'hui");
+      if (todayIndex !== -1) {
+        dataPoints[todayIndex].value = finalValue;
+        dataPoints[todayIndex].formatted = formatCurrency(finalValue);
+      }
     }
     
     return dataPoints;
-  }, [transactions, balance, portfolioValue]);
+  }, [transactions, balance, portfolioValue, currentPrices]);
   
   // Composant personnalisé pour le tooltip du graphique
   const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
@@ -234,10 +313,10 @@ export default function WalletPage() {
         <div className="bg-background/90 backdrop-blur-sm border border-border p-2 rounded-md shadow-md">
           <p className="font-medium">{label}</p>
           <p className="text-primary font-bold">{dataPoint.formatted || formatCurrency(dataPoint.value)}</p>
-          {payload[0].value !== undefined && payload[0].payload.previousValue !== undefined && (
-            <p className={payload[0].value > payload[0].payload.previousValue ? "text-green-500" : "text-red-500"}>
-              {payload[0].value > payload[0].payload.previousValue ? "+" : ""}
-              {((payload[0].value / payload[0].payload.previousValue - 1) * 100).toFixed(2)}%
+          {payload[0].value !== undefined && dataPoint.previousValue !== undefined && (
+            <p className={payload[0].value > dataPoint.previousValue ? "text-green-500" : "text-red-500"}>
+              {payload[0].value > dataPoint.previousValue ? "+" : ""}
+              {((payload[0].value / dataPoint.previousValue - 1) * 100).toFixed(2)}%
             </p>
           )}
         </div>
@@ -271,7 +350,13 @@ export default function WalletPage() {
             <AreaChart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${portfolioValue.toLocaleString()}</div>
+            <div className="text-2xl font-bold">
+              {isLoading ? (
+                <span className="inline-block w-24 h-6 bg-muted animate-pulse rounded"></span>
+              ) : (
+                `$${portfolioValue.toLocaleString()}`
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">
               Valeur totale de vos investissements
             </p>
@@ -289,7 +374,11 @@ export default function WalletPage() {
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${profitLoss >= 0 ? "text-green-500" : "text-red-500"}`}>
-              {profitLoss >= 0 ? "+" : ""}{profitLoss.toLocaleString()}$ ({profitLossPercentage.toFixed(2)}%)
+              {isLoading ? (
+                <span className="inline-block w-24 h-6 bg-muted animate-pulse rounded"></span>
+              ) : (
+                <>{profitLoss >= 0 ? "+" : ""}{profitLoss.toLocaleString()}$ ({profitLossPercentage.toFixed(2)}%)</>
+              )}
             </div>
             <p className="text-xs text-muted-foreground">
               Depuis le début de vos investissements
@@ -312,6 +401,8 @@ export default function WalletPage() {
               <RechartsAreaChart
                 data={portfolioChartData}
                 margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                animationDuration={1000}
+                animationEasing="ease-in-out"
               >
                 <defs>
                   <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
@@ -326,7 +417,8 @@ export default function WalletPage() {
                 />
                 <YAxis 
                   tickFormatter={(value) => `$${Math.round(value / 1000)}k`}
-                  domain={['dataMin - 1000', 'dataMax + 1000']}
+                  domain={['auto', 'auto']}
+                  allowDataOverflow={false}
                 />
                 <CartesianGrid strokeDasharray="3 3" />
                 <Tooltip content={<CustomTooltip />} />
@@ -337,6 +429,7 @@ export default function WalletPage() {
                   strokeWidth={2}
                   fillOpacity={1}
                   fill="url(#colorValue)"
+                  isAnimationActive={true}
                 />
               </RechartsAreaChart>
             </ResponsiveContainer>

@@ -56,14 +56,7 @@ function SignInContent() {
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [callbackUrl, setCallbackUrl] = useState<string>("");
   
-  // Set callback URL when component mounts (client-side)
-  useEffect(() => {
-    const isLocalhost = window.location.hostname === 'localhost';
-    setCallbackUrl(isLocalhost ? 'http://localhost:3000' : window.location.origin);
-  }, []);
-
   // Get error from URL if present
   useEffect(() => {
     const errorParam = searchParams.get('error');
@@ -85,11 +78,10 @@ function SignInContent() {
     
     try {
       console.log("Tentative de connexion avec Google...");
-      console.log("URL de callback:", callbackUrl);
       
       await signIn("google", {
         redirect: true,
-        callbackUrl: callbackUrl || "/"
+        callbackUrl: "/"
       });
       
       // Cette partie ne sera pas exécutée avec redirect: true
@@ -176,7 +168,7 @@ function SignInContent() {
             </svg>
           </div>
           <h3 className="font-medium mb-2">Capital Virtuel</h3>
-          <p className="text-sm text-muted-foreground">Commencez avec 10 000$ virtuels pour construire votre portefeuille</p>
+          <p className="text-sm text-muted-foreground">Commencez avec 100 000$ virtuels pour construire votre portefeuille</p>
         </div>
         
         <div className="flex flex-col items-center text-center">

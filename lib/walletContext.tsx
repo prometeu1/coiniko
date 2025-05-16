@@ -141,7 +141,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       setError('Erreur lors de la récupération des données du portefeuille');
       
       // En cas d'erreur, définir des valeurs par défaut
-      setBalance(10000);
+      setBalance(100000);
       setHoldings([]);
       setTransactions([]);
     } finally {
@@ -174,7 +174,8 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   ): boolean => {
     // Vérifier si l'utilisateur a assez d'argent
     const cost = amount * price;
-    if (cost > balance) {
+    // Fix for 100% purchase - use a small epsilon value to account for floating point precision
+    if (cost > balance + 0.000001) {
       toast({
         title: "Fonds insuffisants",
         description: "Vous n'avez pas assez de fonds pour cet achat.",
@@ -183,17 +184,21 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       return false;
     }
 
+    // Ensure we don't spend more than the actual balance
+    const actualCost = Math.min(cost, balance);
+    const actualAmount = actualCost / price;
+    
     // Simuler l'achat côté client pour une expérience fluide
     // Mettre à jour le solde
-    setBalance(prevBalance => prevBalance - cost);
+    setBalance(prevBalance => prevBalance - actualCost);
     
     // Ajouter ou mettre à jour le holding
     const existingHoldingIndex = holdings.findIndex(h => h.cryptoId === cryptoId);
     if (existingHoldingIndex >= 0) {
       const updatedHoldings = [...holdings];
       const existingHolding = updatedHoldings[existingHoldingIndex];
-      const newAmount = existingHolding.amount + amount;
-      const newTotalInvested = existingHolding.totalInvested + cost;
+      const newAmount = existingHolding.amount + actualAmount;
+      const newTotalInvested = existingHolding.totalInvested + actualCost;
       const newAveragePrice = newTotalInvested / newAmount;
       
       updatedHoldings[existingHoldingIndex] = {
@@ -211,9 +216,9 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         cryptoId,
         name: cryptoName,
         symbol: cryptoSymbol,
-        amount,
+        amount: actualAmount,
         purchasePrice: price,
-        totalInvested: cost
+        totalInvested: actualCost
       };
       
       setHoldings(prevHoldings => [...prevHoldings, newHolding]);
@@ -225,7 +230,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       cryptoId,
       cryptoName,
       cryptoSymbol,
-      amount,
+      amount: actualAmount,
       price,
       type: 'buy',
       timestamp: Date.now()
@@ -244,7 +249,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         crypto_id: cryptoId,
         crypto_name: cryptoName,
         crypto_symbol: cryptoSymbol,
-        amount,
+        amount: actualAmount,
         price,
       }),
     })
