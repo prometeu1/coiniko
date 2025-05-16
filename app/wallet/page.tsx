@@ -4,10 +4,11 @@ import React, { useMemo, useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { 
-  ArrowDownIcon, 
-  ArrowUpIcon, 
+  ArrowDown, 
+  ArrowUp, 
   AreaChart, 
-  DollarSign
+  DollarSign,
+  Clock
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -24,6 +25,7 @@ import {
   TooltipProps
 } from "recharts";
 import CryptoHoldingCard from "@/components/crypto-holding-card";
+import { Button } from "@/components/ui/button";
 
 // Interface pour le format des données du graphique
 interface ChartDataPoint {
@@ -96,6 +98,13 @@ export default function WalletPage() {
     ? (profitLoss / totalInvested) * 100 
     : 0;
 
+  // Get color based on value (positive/negative)
+  const getChangeColor = (change: number) => {
+    if (change > 0) return "text-green-500";
+    if (change < 0) return "text-red-500";
+    return "text-gray-500";
+  };
+  
   // Format date - Définir toutes les fonctions utilitaires avant de les utiliser
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleDateString("fr-FR", {
@@ -153,12 +162,13 @@ export default function WalletPage() {
     return months;
   };
   
-  // Formatter les valeurs monétaires
-  const formatCurrency = (value: number) => {
+  // Format currency with proper locale - fixing the display format
+  const formatCurrencyDisplay = (value: number) => {
     return new Intl.NumberFormat('fr-FR', {
       style: 'currency',
       currency: 'USD',
-      maximumFractionDigits: 0
+      maximumFractionDigits: 0,
+      minimumFractionDigits: 0
     }).format(value);
   };
 
@@ -168,9 +178,9 @@ export default function WalletPage() {
       // Si aucune transaction, montrer la balance initiale avec une courbe plate
       const initialValue = balance;
       return [
-        { date: formatDateShort(new Date(Date.now() - 60 * 24 * 60 * 60 * 1000)), value: initialValue, formatted: formatCurrency(initialValue) },
-        { date: formatDateShort(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)), value: initialValue, formatted: formatCurrency(initialValue) },
-        { date: "Aujourd'hui", value: initialValue, formatted: formatCurrency(initialValue) }
+        { date: formatDateShort(new Date(Date.now() - 60 * 24 * 60 * 60 * 1000)), value: initialValue, formatted: formatCurrencyDisplay(initialValue) },
+        { date: formatDateShort(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)), value: initialValue, formatted: formatCurrencyDisplay(initialValue) },
+        { date: "Aujourd'hui", value: initialValue, formatted: formatCurrencyDisplay(initialValue) }
       ];
     }
 
@@ -195,7 +205,7 @@ export default function WalletPage() {
     dataPoints.push({ 
       date: formatDateShort(firstTransactionDate), 
       value: runningBalance,
-      formatted: formatCurrency(runningBalance)
+      formatted: formatCurrencyDisplay(runningBalance)
     });
     
     // Obtenir les dates des transactions (sans duplications)
@@ -271,7 +281,7 @@ export default function WalletPage() {
           date: dateString, 
           value: totalValue,
           previousValue,
-          formatted: formatCurrency(totalValue)
+          formatted: formatCurrencyDisplay(totalValue)
         });
         lastCalculatedValue = totalValue;
       }
@@ -291,14 +301,14 @@ export default function WalletPage() {
         date: "Aujourd'hui", 
         value: finalValue,
         previousValue,
-        formatted: formatCurrency(finalValue)
+        formatted: formatCurrencyDisplay(finalValue)
       });
     } else {
       // Mettre à jour le point d'aujourd'hui avec la valeur réelle
       const todayIndex = dataPoints.findIndex(dp => dp.date === today || dp.date === "Aujourd'hui");
       if (todayIndex !== -1) {
         dataPoints[todayIndex].value = finalValue;
-        dataPoints[todayIndex].formatted = formatCurrency(finalValue);
+        dataPoints[todayIndex].formatted = formatCurrencyDisplay(finalValue);
       }
     }
     
@@ -312,7 +322,7 @@ export default function WalletPage() {
       return (
         <div className="bg-background/90 backdrop-blur-sm border border-border p-2 rounded-md shadow-md">
           <p className="font-medium">{label}</p>
-          <p className="text-primary font-bold">{dataPoint.formatted || formatCurrency(dataPoint.value)}</p>
+          <p className="text-primary font-bold">{dataPoint.formatted || formatCurrencyDisplay(dataPoint.value)}</p>
           {payload[0].value !== undefined && dataPoint.previousValue !== undefined && (
             <p className={payload[0].value > dataPoint.previousValue ? "text-green-500" : "text-red-500"}>
               {payload[0].value > dataPoint.previousValue ? "+" : ""}
@@ -327,137 +337,169 @@ export default function WalletPage() {
 
   return (
     <div className="container mx-auto max-w-6xl">
-      <h1 className="text-3xl font-bold mb-6">Mon Portefeuille</h1>
+      <h1 className="text-3xl font-bold mb-6 page-title page-title-gradient">Mon Portefeuille</h1>
 
-      {/* Overview Cards */}
-      <div className="grid gap-4 md:grid-cols-3 mb-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Balance</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${balance.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">
-              Fonds disponibles pour l&apos;investissement
-            </p>
-          </CardContent>
-        </Card>
+      <div className="relative mb-10">
+        {/* Background decorative elements */}
+        <div className="absolute top-10 left-0 w-72 h-72 bg-primary/5 rounded-full blur-3xl -z-10"></div>
+        <div className="absolute bottom-10 right-0 w-80 h-80 bg-blue-500/5 rounded-full blur-3xl -z-10"></div>
+        
+        {/* Overview Cards with enhanced styling */}
+        <div className="grid gap-4 md:grid-cols-3 mb-6">
+          <Card className="overflow-hidden border-border/30 bg-card/60 backdrop-blur-sm shadow-lg transition-all hover:shadow-md hover:bg-card/80">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Balance</CardTitle>
+              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <DollarSign className="h-4 w-4 text-primary" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">${balance.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">
+                Fonds disponibles pour l&apos;investissement
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Valeur du Portfolio</CardTitle>
-            <AreaChart className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {isLoading ? (
-                <span className="inline-block w-24 h-6 bg-muted animate-pulse rounded"></span>
-              ) : (
-                `$${portfolioValue.toLocaleString()}`
-              )}
+          <Card className="overflow-hidden border-border/30 bg-card/60 backdrop-blur-sm shadow-lg transition-all hover:shadow-md hover:bg-card/80">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Valeur du Portfolio</CardTitle>
+              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <AreaChart className="h-4 w-4 text-primary" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {isLoading ? (
+                  <span className="inline-block w-24 h-6 bg-muted animate-pulse rounded"></span>
+                ) : (
+                  `$${portfolioValue.toLocaleString()}`
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Valeur totale de vos investissements
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className={`overflow-hidden border-border/30 bg-card/60 backdrop-blur-sm shadow-lg transition-all hover:shadow-md hover:bg-card/80 ${profitLoss >= 0 ? 'hover:border-green-500/20' : 'hover:border-red-500/20'}`}>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Profit/Perte</CardTitle>
+              <div className={`h-8 w-8 rounded-full flex items-center justify-center ${profitLoss >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
+                {profitLoss >= 0 ? (
+                  <ArrowUp className="h-4 w-4 text-green-500" />
+                ) : (
+                  <ArrowDown className="h-4 w-4 text-red-500" />
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+                            <div className={`text-2xl font-bold ${profitLoss >= 0 ? "text-green-500" : "text-red-500"}`}>                {isLoading ? (                  <span className="inline-block w-24 h-6 bg-muted animate-pulse rounded"></span>                ) : (                  <>{profitLoss >= 0 ? "+" : ""}{formatCurrencyDisplay(profitLoss)} ({profitLossPercentage.toFixed(2)}%)</>                )}              </div>
+              <p className="text-xs text-muted-foreground">
+                Depuis le début de vos investissements
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Performance Chart with enhanced styling */}
+        <Card className="mb-8 overflow-hidden border-border/30 bg-card/60 backdrop-blur-sm shadow-lg">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Performance du Portfolio</CardTitle>
+                <CardDescription>
+                  Évolution de la valeur totale de votre portfolio
+                </CardDescription>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className={`text-sm font-medium ${getChangeColor(portfolioValue - (portfolioChartData[0]?.value || portfolioValue))}`}>
+                  {portfolioValue > (portfolioChartData[0]?.value || portfolioValue) ? '+' : ''}
+                  {((portfolioValue / Math.max((portfolioChartData[0]?.value || portfolioValue), 1) - 1) * 100).toFixed(2)}%
+                </span>
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Valeur totale de vos investissements
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Profit/Perte</CardTitle>
-            {profitLoss >= 0 ? (
-              <ArrowUpIcon className="h-4 w-4 text-green-500" />
-            ) : (
-              <ArrowDownIcon className="h-4 w-4 text-red-500" />
-            )}
           </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${profitLoss >= 0 ? "text-green-500" : "text-red-500"}`}>
-              {isLoading ? (
-                <span className="inline-block w-24 h-6 bg-muted animate-pulse rounded"></span>
-              ) : (
-                <>{profitLoss >= 0 ? "+" : ""}{profitLoss.toLocaleString()}$ ({profitLossPercentage.toFixed(2)}%)</>
-              )}
+          <CardContent className="py-4">
+            <div className="h-[350px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <RechartsAreaChart
+                  data={portfolioChartData}
+                  margin={{ top: 10, right: 30, left: 10, bottom: 10 }}
+                  animationDuration={1500}
+                  animationEasing="ease-in-out"
+                >
+                  <defs>
+                    <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis 
+                    dataKey="date"
+                    tick={{ fontSize: 12 }}
+                    tickFormatter={(value) => value === "Aujourd'hui" ? value : value.split(' ')[0]}
+                    stroke="hsl(var(--muted-foreground))"
+                    dy={10}
+                  />
+                  <YAxis 
+                    tickFormatter={(value) => `$${Math.round(value / 1000)}k`}
+                    domain={['auto', 'auto']}
+                    allowDataOverflow={false}
+                    stroke="hsl(var(--muted-foreground))"
+                    dx={-10}
+                  />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground)/0.2)" />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#colorValue)"
+                    isAnimationActive={true}
+                  />
+                </RechartsAreaChart>
+              </ResponsiveContainer>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Depuis le début de vos investissements
-            </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Performance Chart */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Performance du Portfolio</CardTitle>
-          <CardDescription>
-            Évolution de la valeur totale de votre portfolio
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <RechartsAreaChart
-                data={portfolioChartData}
-                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                animationDuration={1000}
-                animationEasing="ease-in-out"
-              >
-                <defs>
-                  <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis 
-                  dataKey="date"
-                  tick={{ fontSize: 12 }}
-                  tickFormatter={(value) => value === "Aujourd'hui" ? value : value.split(' ')[0]}
-                />
-                <YAxis 
-                  tickFormatter={(value) => `$${Math.round(value / 1000)}k`}
-                  domain={['auto', 'auto']}
-                  allowDataOverflow={false}
-                />
-                <CartesianGrid strokeDasharray="3 3" />
-                <Tooltip content={<CustomTooltip />} />
-                <Area
-                  type="monotone"
-                  dataKey="value"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#colorValue)"
-                  isAnimationActive={true}
-                />
-              </RechartsAreaChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Tabs for Holdings and Transactions */}
-      <Tabs defaultValue="holdings" className="mb-6">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="holdings">Mes Cryptos</TabsTrigger>
-          <TabsTrigger value="transactions">Historique</TabsTrigger>
+      {/* Tabs for Holdings and Transactions with enhanced styling */}
+      <Tabs defaultValue="holdings" className="mb-8">
+        <TabsList className="grid w-full grid-cols-2 p-1 bg-muted/30 backdrop-blur-sm">
+          <TabsTrigger value="holdings" className="rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Mes Cryptos</TabsTrigger>
+          <TabsTrigger value="transactions" className="rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Historique</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="holdings">
-          <Card>
+        <TabsContent value="holdings" className="mt-6">
+          <Card className="overflow-hidden border-border/30 bg-card/60 backdrop-blur-sm shadow-lg">
             <CardHeader>
-              <CardTitle>Portefeuille de Cryptomonnaies</CardTitle>
-              <CardDescription>
-                Vos cryptomonnaies actuelles et leur valeur
-              </CardDescription>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <CardTitle>Portefeuille de Cryptomonnaies</CardTitle>
+                  <CardDescription>
+                    Vos cryptomonnaies actuelles et leur valeur
+                  </CardDescription>
+                </div>
+                <Button variant="outline" className="bg-primary/10 border-primary/20">Acheter une nouvelle crypto</Button>
+              </div>
             </CardHeader>
             <CardContent>
               {holdings.length === 0 ? (
-                <div className="text-center py-6 text-muted-foreground">
-                  <p>Vous n&apos;avez pas encore de cryptomonnaies.</p>
-                  <Link href="/" className="text-primary hover:underline mt-2 inline-block">
-                    Commencez à investir
+                <div className="text-center py-16 bg-muted/10 rounded-lg border border-dashed border-muted">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
+                    <AreaChart className="h-8 w-8 text-primary/60" />
+                  </div>
+                  <h3 className="text-xl font-medium mb-2">Portefeuille vide</h3>
+                  <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                    Vous n&apos;avez pas encore de cryptomonnaies dans votre portefeuille. 
+                    Commencez à investir pour diversifier vos actifs.
+                  </p>
+                  <Link href="/" className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+                    Explorer le marché
                   </Link>
                 </div>
               ) : (
@@ -480,8 +522,8 @@ export default function WalletPage() {
           </Card>
         </TabsContent>
         
-        <TabsContent value="transactions">
-          <Card>
+        <TabsContent value="transactions" className="mt-6">
+          <Card className="overflow-hidden border-border/30 bg-card/60 backdrop-blur-sm shadow-lg">
             <CardHeader>
               <CardTitle>Historique des Transactions</CardTitle>
               <CardDescription>
@@ -490,44 +532,39 @@ export default function WalletPage() {
             </CardHeader>
             <CardContent>
               {transactions.length === 0 ? (
-                <div className="text-center py-6 text-muted-foreground">
-                  <p>Aucune transaction effectuée.</p>
+                <div className="text-center py-16 bg-muted/10 rounded-lg border border-dashed border-muted">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Clock className="h-8 w-8 text-primary/60" />
+                  </div>
+                  <h3 className="text-xl font-medium mb-2">Aucune transaction</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Vous n&apos;avez pas encore effectué de transaction.
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {transactions.map((transaction) => (
-                    <div key={transaction.id} className="flex items-center justify-between border-b pb-3">
+                    <div key={transaction.id} className="flex items-center justify-between border-b pb-4 mb-4 last:border-0 last:mb-0 last:pb-0 hover:bg-muted/5 p-2 rounded-lg transition-colors">
                       <div className="flex items-center">
-                        <div className={`p-2 rounded-full mr-3 ${
-                          transaction.type === 'buy' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'
-                        }`}>
-                          {transaction.type === 'buy' ? (
-                            <ArrowDownIcon className="h-4 w-4 text-green-500 dark:text-green-300" />
-                          ) : (
-                            <ArrowUpIcon className="h-4 w-4 text-red-500 dark:text-red-300" />
-                          )}
+                        <div className={`relative w-10 h-10 mr-3 rounded-full flex items-center justify-center ${transaction.type === 'buy' ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
+                          <Image
+                            src={`https://s2.coinmarketcap.com/static/img/coins/64x64/${transaction.cryptoId}.png`}
+                            alt={transaction.cryptoName}
+                            width={32}
+                            height={32}
+                            className="crypto-logo"
+                            onError={(e) => {
+                              // Fallback if image fails to load
+                              const target = e.target as HTMLImageElement;
+                              target.src = `https://placehold.co/32x32/3b82f6/FFFFFF?text=${transaction.cryptoSymbol.substring(0, 3)}`;
+                            }}
+                          />
                         </div>
-                        <div className="flex items-center">
-                          <div className="relative w-8 h-8 mr-3">
-                            <Image
-                              src={`https://s2.coinmarketcap.com/static/img/coins/64x64/${transaction.cryptoId}.png`}
-                              alt={transaction.cryptoName}
-                              width={32}
-                              height={32}
-                              className="crypto-logo"
-                              onError={(e) => {
-                                // Fallback if image fails to load
-                                const target = e.target as HTMLImageElement;
-                                target.src = `https://placehold.co/32x32/3b82f6/FFFFFF?text=${transaction.cryptoSymbol.substring(0, 3)}`;
-                              }}
-                            />
-                          </div>
-                          <div>
-                            <h3 className="font-medium">
-                              {transaction.type === 'buy' ? 'Achat' : 'Vente'} de {transaction.cryptoSymbol}
-                            </h3>
-                            <p className="text-sm text-muted-foreground">{formatDate(transaction.timestamp)}</p>
-                          </div>
+                        <div>
+                          <h3 className="font-medium">
+                            {transaction.type === 'buy' ? 'Achat' : 'Vente'} de {transaction.cryptoSymbol}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">{formatDate(transaction.timestamp)}</p>
                         </div>
                       </div>
                       <div className="text-right">
@@ -544,6 +581,94 @@ export default function WalletPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Additional recommended section */}
+      <div className="mb-10">
+        <h2 className="text-2xl font-bold mb-6">Recommandations pour vous</h2>
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card className="overflow-hidden border-border/30 bg-card/60 backdrop-blur-sm shadow-lg transition-all hover:scale-[1.02] hover:shadow-xl">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">Diversifiez votre portefeuille</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Les experts recommandent de diversifier vos investissements entre plusieurs cryptomonnaies pour réduire les risques.
+              </p>
+              <Link href="/" className="text-primary text-sm hover:underline inline-flex items-center">
+                Explorer plus de cryptos
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="overflow-hidden border-border/30 bg-card/60 backdrop-blur-sm shadow-lg transition-all hover:scale-[1.02] hover:shadow-xl">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">Configurer des alertes de prix</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Recevez des notifications lorsque vos cryptos atteignent certains seuils de prix pour ne jamais manquer une opportunité.
+              </p>
+              <Button variant="outline" className="text-sm" disabled>
+                Bientôt disponible
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="overflow-hidden border-border/30 bg-card/60 backdrop-blur-sm shadow-lg transition-all hover:scale-[1.02] hover:shadow-xl">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">Analyser votre performance</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Consultez des statistiques détaillées sur vos investissements et découvrez comment optimiser votre stratégie.
+              </p>
+              <Button variant="outline" className="text-sm" disabled>
+                Bientôt disponible
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Market trends section */}
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold mb-6">Tendances du marché</h2>
+        <Card className="overflow-hidden border-border/30 bg-card/60 backdrop-blur-sm shadow-lg">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-medium">Mouvements notables</h3>
+              <Button variant="ghost" size="sm" className="text-primary">
+                Voir plus
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="p-4 rounded-lg bg-muted/20 flex flex-col">
+                <span className="text-sm text-muted-foreground mb-1">Bitcoin</span>
+                <span className="text-lg font-medium mb-1">$43,567.89</span>
+                <span className="text-sm text-green-500">+2.45%</span>
+              </div>
+              <div className="p-4 rounded-lg bg-muted/20 flex flex-col">
+                <span className="text-sm text-muted-foreground mb-1">Ethereum</span>
+                <span className="text-lg font-medium mb-1">$3,256.42</span>
+                <span className="text-sm text-green-500">+1.87%</span>
+              </div>
+              <div className="p-4 rounded-lg bg-muted/20 flex flex-col">
+                <span className="text-sm text-muted-foreground mb-1">Solana</span>
+                <span className="text-lg font-medium mb-1">$123.78</span>
+                <span className="text-sm text-red-500">-0.63%</span>
+              </div>
+              <div className="p-4 rounded-lg bg-muted/20 flex flex-col">
+                <span className="text-sm text-muted-foreground mb-1">Cardano</span>
+                <span className="text-lg font-medium mb-1">$0.5489</span>
+                <span className="text-sm text-green-500">+4.12%</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 } 

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, ArrowUpIcon, ArrowDownIcon, DollarSign, Wallet, BarChart3, Globe, Clock, TrendingUp, Layers, AlertTriangle } from "lucide-react";
+import { ArrowLeft, ArrowUp, ArrowDown, DollarSign, Wallet, BarChart3, Globe, Clock, TrendingUp, Layers, AlertTriangle, Users, Link2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,26 @@ import {
   BarChart,
 } from "recharts";
 import Script from "next/script";
+import { Badge } from "@/components/ui/badge";
+
+// Définir un composant personnalisé pour l'icône Whale car elle n'existe pas dans lucide-react
+const Whale = ({ className, size }: { className?: string, size?: number }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg"
+    width={size || 24}
+    height={size || 24}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M22 10.5c0 2.5-2 4.5-4.5 4.5S13 13 13 10.5 15 6 17.5 6 22 8 22 10.5zM5.5 20a3.5 3.5 0 0 1 0-7H9a3.5 3.5 0 0 0 0 7v-7h5" />
+    <path d="M5.5 17H3c0-4.4 4.5-8 10-8 2 0 3.9.6 5.5 1.5" />
+  </svg>
+);
 
 // Types for the cryptocurrency data
 interface CryptoDetail {
@@ -253,35 +273,53 @@ export default function CryptoDetailPage() {
   
   return (
     <div className="container mx-auto py-6 animate-fade-in">
+      {/* Background decorative elements */}
+      <div className="fixed inset-0 -z-10 pointer-events-none overflow-hidden">
+        <div className="absolute top-20 right-10 w-96 h-96 bg-primary/5 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-10 left-20 w-80 h-80 bg-blue-500/5 rounded-full blur-3xl"></div>
+        <div className="absolute top-40 left-60 w-72 h-72 bg-purple-500/5 rounded-full blur-3xl"></div>
+      </div>
+      
       {/* Header with navigation */}
-      <div className="mb-6">
+      <div className="mb-8">
         <Button 
           variant="ghost" 
           onClick={() => router.back()}
-          className="mb-2"
+          className="mb-4 group"
         >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Retour
+          <ArrowLeft className="h-4 w-4 mr-2 transition-transform group-hover:-translate-x-1" />
+          <span className="relative">
+            Retour
+            <span className="absolute inset-x-0 bottom-0 h-0.5 bg-primary scale-x-0 group-hover:scale-x-100 transition-transform origin-left"></span>
+          </span>
         </Button>
       </div>
       
-      {/* Crypto header */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8">
-        <div className="flex items-center">
-          <div className="relative mr-4">
-            <div className="absolute inset-0 bg-accent/20 rounded-full blur-sm opacity-70"></div>
+      {/* Crypto header with improved design */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-10 relative">
+        <div className="absolute inset-0 -z-10 bg-gradient-to-r from-primary/5 to-transparent rounded-xl opacity-30"></div>
+        
+        <div className="flex items-center p-6">
+          <div className="relative mr-6">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-blue-500/20 rounded-full blur-sm opacity-80"></div>
+            <div className="absolute inset-0 rounded-full border border-primary/20 animate-ping-slow opacity-20"></div>
             <Image
-              src={cryptoData.image?.large || `https://placehold.co/96x96/3b82f6/FFFFFF?text=${cryptoData.symbol.substring(0, 3)}`}
+              src={cryptoData.image?.large || `https://placehold.co/128x128/3b82f6/FFFFFF?text=${cryptoData.symbol.substring(0, 3)}`}
               alt={cryptoData.name}
-              width={96}
-              height={96}
-              className="relative z-10"
+              width={128}
+              height={128}
+              className="relative z-10 rounded-full p-1 bg-card/30 backdrop-blur-sm border border-border/30"
             />
           </div>
           <div>
-            <h1 className="text-3xl font-bold">{cryptoData.name}</h1>
-            <div className="flex items-center space-x-2 text-muted-foreground">
-              <span className="font-medium text-xl">{cryptoData.symbol}</span>
+            <div className="flex items-center space-x-3">
+              <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">{cryptoData.name}</h1>
+              <div className={`px-3 py-1 rounded-full text-sm font-medium ${getChangeColor(cryptoData.market_data?.price_change_percentage_24h || 0)}`}>
+                {formatPercentage(cryptoData.market_data?.price_change_percentage_24h || 0)}
+              </div>
+            </div>
+            <div className="flex items-center space-x-2 text-muted-foreground mt-1">
+              <span className="font-medium text-xl bg-gradient-to-r from-primary to-blue-500 bg-clip-text text-transparent">{cryptoData.symbol.toUpperCase()}</span>
               {cryptoData.categories && cryptoData.categories.length > 0 && (
                 <>
                   <span>•</span>
@@ -289,14 +327,18 @@ export default function CryptoDetailPage() {
                 </>
               )}
             </div>
+            <div className="mt-3 text-3xl font-bold">
+              {formatCurrency(cryptoData.market_data?.current_price?.usd || 0)}
+            </div>
           </div>
         </div>
         
-        <div className="flex mt-4 md:mt-0 space-x-2">
+        <div className="flex mt-4 md:mt-0 space-x-3 p-6">
           <Button
             variant="outline"
             onClick={() => window.open(cryptoData.links?.homepage?.[0] || '#', '_blank')}
             disabled={!cryptoData.links?.homepage?.[0]}
+            className="border-primary/20 bg-primary/5 hover:bg-primary/10"
           >
             <Globe className="h-4 w-4 mr-2" />
             Site Web
@@ -306,9 +348,9 @@ export default function CryptoDetailPage() {
             variant="default"
             onClick={() => {
               // Logic to open buy modal would go here
-              // We'll implement this in a future step
               alert(`Achat de ${cryptoData.symbol} bientôt disponible!`);
             }}
+            className="bg-gradient-to-r from-primary to-blue-500 hover:opacity-90"
           >
             <Wallet className="h-4 w-4 mr-2" />
             Acheter
@@ -317,12 +359,12 @@ export default function CryptoDetailPage() {
       </div>
       
       {/* Price and stats section */}
-      <div className="grid gap-6 md:grid-cols-4 mb-8">
-        <Card className="md:col-span-3">
-          <CardHeader className="pb-2">
+      <div className="grid gap-6 md:grid-cols-4 mb-10">
+        <Card className="md:col-span-3 overflow-hidden border-border/30 bg-card/60 backdrop-blur-sm shadow-lg">
+          <CardHeader className="pb-2 border-b border-border/20">
             <div className="flex flex-col md:flex-row md:items-center justify-between">
               <div>
-                <CardTitle className="text-2xl md:text-3xl font-bold">
+                <CardTitle className="text-2xl md:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
                   {formatCurrency(cryptoData.market_data?.current_price?.usd || 0)}
                 </CardTitle>
                 <CardDescription className={`text-lg font-medium ${getChangeColor(cryptoData.market_data?.price_change_percentage_24h || 0)}`}>
@@ -334,6 +376,7 @@ export default function CryptoDetailPage() {
                 <Button
                   variant={chartTimeframe === 'day' ? 'default' : 'outline'}
                   size="sm"
+                  className={chartTimeframe === 'day' ? 'bg-primary text-primary-foreground' : 'border-primary/20 bg-primary/5 hover:bg-primary/10'}
                   onClick={() => {
                     if (cryptoData.chart_data?.day) {
                       processChartData('day', cryptoData.chart_data.day);
@@ -345,6 +388,7 @@ export default function CryptoDetailPage() {
                 <Button
                   variant={chartTimeframe === 'week' ? 'default' : 'outline'}
                   size="sm"
+                  className={chartTimeframe === 'week' ? 'bg-primary text-primary-foreground' : 'border-primary/20 bg-primary/5 hover:bg-primary/10'}
                   onClick={() => {
                     if (cryptoData.chart_data?.week) {
                       processChartData('week', cryptoData.chart_data.week);
@@ -356,6 +400,7 @@ export default function CryptoDetailPage() {
                 <Button
                   variant={chartTimeframe === 'month' ? 'default' : 'outline'}
                   size="sm"
+                  className={chartTimeframe === 'month' ? 'bg-primary text-primary-foreground' : 'border-primary/20 bg-primary/5 hover:bg-primary/10'}
                   onClick={() => {
                     if (cryptoData.chart_data?.month) {
                       processChartData('month', cryptoData.chart_data.month);
@@ -367,6 +412,7 @@ export default function CryptoDetailPage() {
                 <Button
                   variant={chartTimeframe === 'year' ? 'default' : 'outline'}
                   size="sm"
+                  className={chartTimeframe === 'year' ? 'bg-primary text-primary-foreground' : 'border-primary/20 bg-primary/5 hover:bg-primary/10'}
                   onClick={() => {
                     if (cryptoData.chart_data?.year) {
                       processChartData('year', cryptoData.chart_data.year);
@@ -378,11 +424,13 @@ export default function CryptoDetailPage() {
               </div>
             </div>
           </CardHeader>
-          <CardContent>
-            {/* TradingView Advanced Chart */}
-            <div className="h-[400px] w-full mt-4">
+          <CardContent className="p-0">
+            {/* TradingView Advanced Chart with enhanced styling */}
+            <div className="h-[450px] w-full pt-4 px-4 relative">
+              <div className="absolute top-0 left-0 w-full h-full opacity-5 bg-grid-pattern"></div>
+              
               {/* TradingView Widget BEGIN */}
-              <div className="tradingview-widget-container" style={{ height: '100%', width: '100%' }}>
+              <div className="tradingview-widget-container rounded-lg overflow-hidden border border-border/30" style={{ height: '100%', width: '100%' }}>
                 <div className="tradingview-widget-container__widget" style={{ height: 'calc(100% - 32px)', width: '100%' }}></div>
                 
                 <script
@@ -397,11 +445,12 @@ export default function CryptoDetailPage() {
                         "theme": document.documentElement.classList.contains('dark') ? "dark" : "light",
                         "style": "1",
                         "locale": "fr",
-                        "toolbar_bg": "#f1f3f6",
+                        "toolbar_bg": "rgba(0, 0, 0, 0)",
                         "enable_publishing": false,
                         "hide_top_toolbar": false,
                         "allow_symbol_change": true,
-                        "container_id": "tradingview_chart"
+                        "container_id": "tradingview_chart",
+                        "save_image": false,
                       });
                     `
                   }}
@@ -413,8 +462,8 @@ export default function CryptoDetailPage() {
             </div>
 
             {/* Fallback chart if TradingView is not available */}
-            {chartData.length > 0 && (
-              <div className="h-[400px] w-full mt-4">
+            {chartData.length > 0 && !document.getElementById('tradingview_chart')?.innerHTML && (
+              <div className="h-[400px] w-full px-4">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart
                     data={chartData}
@@ -430,12 +479,14 @@ export default function CryptoDetailPage() {
                       dataKey="date"
                       tick={{ fontSize: 12 }}
                       tickFormatter={(value) => value}
+                      stroke="hsl(var(--muted-foreground))"
                     />
                     <YAxis
                       tickFormatter={(value) => `$${Math.round(value).toLocaleString()}`}
                       domain={['auto', 'auto']}
+                      stroke="hsl(var(--muted-foreground))"
                     />
-                    <CartesianGrid strokeDasharray="3 3" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground)/0.2)" />
                     <Tooltip
                       formatter={(value: number) => [formatCurrency(value), 'Prix']}
                       labelFormatter={(label) => `Date: ${label}`}
@@ -447,6 +498,8 @@ export default function CryptoDetailPage() {
                       strokeWidth={2}
                       fillOpacity={1}
                       fill="url(#colorValue)"
+                      animationDuration={1500}
+                      animationEasing="ease-out"
                     />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -455,49 +508,72 @@ export default function CryptoDetailPage() {
           </CardContent>
         </Card>
         
-        {/* Stats card */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Statistiques</CardTitle>
+        {/* Stats card with improved design */}
+        <Card className="overflow-hidden border-border/30 bg-card/60 backdrop-blur-sm shadow-lg">
+          <CardHeader className="pb-2 border-b border-border/20">
+            <CardTitle className="flex items-center">
+              <BarChart3 className="h-5 w-5 mr-2 text-primary" />
+              Statistiques
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
+          <CardContent className="space-y-4 p-6">
+            <div className="p-3 rounded-lg bg-muted/20 border border-border/30">
               <p className="text-sm text-muted-foreground">Capitalisation</p>
-              <p className="font-medium">{formatCurrency(cryptoData.market_data?.market_cap?.usd || 0)}</p>
+              <p className="font-medium text-lg">{formatCurrency(cryptoData.market_data?.market_cap?.usd || 0)}</p>
             </div>
             
-            <div>
+            <div className="p-3 rounded-lg bg-muted/20 border border-border/30">
               <p className="text-sm text-muted-foreground">Volume (24h)</p>
-              <p className="font-medium">{formatCurrency(cryptoData.market_data?.total_volume?.usd || 0)}</p>
+              <p className="font-medium text-lg">{formatCurrency(cryptoData.market_data?.total_volume?.usd || 0)}</p>
             </div>
             
-            <div>
-              <p className="text-sm text-muted-foreground">Plus haut (24h)</p>
-              <p className="font-medium">{formatCurrency(cryptoData.market_data?.high_24h?.usd || 0)}</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-3 rounded-lg bg-muted/20 border border-border/30">
+                <p className="text-sm text-muted-foreground">Plus haut (24h)</p>
+                <p className="font-medium">{formatCurrency(cryptoData.market_data?.high_24h?.usd || 0)}</p>
+              </div>
+              
+              <div className="p-3 rounded-lg bg-muted/20 border border-border/30">
+                <p className="text-sm text-muted-foreground">Plus bas (24h)</p>
+                <p className="font-medium">{formatCurrency(cryptoData.market_data?.low_24h?.usd || 0)}</p>
+              </div>
             </div>
             
-            <div>
-              <p className="text-sm text-muted-foreground">Plus bas (24h)</p>
-              <p className="font-medium">{formatCurrency(cryptoData.market_data?.low_24h?.usd || 0)}</p>
+            <Separator className="bg-border/30" />
+            
+            <div className="p-3 rounded-lg bg-gradient-to-r from-primary/5 to-transparent border border-primary/20">
+              <div className="flex justify-between items-center">
+                <p className="text-sm text-muted-foreground">ATH</p>
+                <p className="text-xs text-primary">
+                  {cryptoData.market_data?.ath_date?.usd && formatDate(cryptoData.market_data.ath_date.usd)}
+                </p>
+              </div>
+              <p className="font-medium text-lg mt-1">{formatCurrency(cryptoData.market_data?.ath?.usd || 0)}</p>
             </div>
             
-            <Separator />
-            
-            <div>
-              <p className="text-sm text-muted-foreground">ATH</p>
-              <p className="font-medium">{formatCurrency(cryptoData.market_data?.ath?.usd || 0)}</p>
-              <p className="text-xs text-muted-foreground">
-                {cryptoData.market_data?.ath_date?.usd && formatDate(cryptoData.market_data.ath_date.usd)}
-              </p>
-            </div>
-            
-            <div>
+            <div className="p-3 rounded-lg bg-muted/20 border border-border/30">
               <p className="text-sm text-muted-foreground">Supply en circulation</p>
               <p className="font-medium">{formatNumber(cryptoData.market_data?.circulating_supply || 0)} {cryptoData.symbol}</p>
+              
+              {/* Progress bar for supply */}
+              {cryptoData.market_data?.max_supply && (
+                <div className="mt-2">
+                  <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-primary transition-all duration-1000 ease-out"
+                      style={{ width: `${(cryptoData.market_data.circulating_supply / cryptoData.market_data.max_supply) * 100}%` }}
+                    ></div>
+                  </div>
+                  <div className="flex justify-between mt-1 text-xs text-muted-foreground">
+                    <span>Circulating</span>
+                    <span>{((cryptoData.market_data.circulating_supply / cryptoData.market_data.max_supply) * 100).toFixed(1)}%</span>
+                  </div>
+                </div>
+              )}
             </div>
             
             {cryptoData.market_data?.max_supply && (
-              <div>
+              <div className="p-3 rounded-lg bg-muted/20 border border-border/30">
                 <p className="text-sm text-muted-foreground">Supply maximum</p>
                 <p className="font-medium">{formatNumber(cryptoData.market_data.max_supply)} {cryptoData.symbol}</p>
               </div>
@@ -509,28 +585,37 @@ export default function CryptoDetailPage() {
       {/* Add a script tag for TradingView */}
       <Script src="https://s3.tradingview.com/tv.js" strategy="beforeInteractive" />
       
-      {/* Tabs for additional information */}
-      <Tabs defaultValue="description" className="w-full mb-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="description">Description</TabsTrigger>
-          <TabsTrigger value="whale-activity">Activité des Whales</TabsTrigger>
-          <TabsTrigger value="links">Liens & Ressources</TabsTrigger>
+      {/* Tabs for additional information with enhanced styling */}
+      <Tabs defaultValue="description" className="w-full mb-10">
+        <TabsList className="grid w-full grid-cols-3 p-1 bg-muted/30 backdrop-blur-sm">
+          <TabsTrigger value="description" className="rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Description</TabsTrigger>
+          <TabsTrigger value="whale-activity" className="rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Activité des Whales</TabsTrigger>
+          <TabsTrigger value="links" className="rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Liens & Ressources</TabsTrigger>
         </TabsList>
         
         {/* Description tab */}
         <TabsContent value="description" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>À propos de {cryptoData.name}</CardTitle>
+          <Card className="overflow-hidden border-border/30 bg-card/60 backdrop-blur-sm shadow-lg">
+            <CardHeader className="border-b border-border/20">
+              <CardTitle className="flex items-center">
+                <Globe className="h-5 w-5 mr-2 text-primary" />
+                À propos de {cryptoData.name}
+              </CardTitle>
             </CardHeader>
-            <CardContent className="text-muted-foreground">
+            <CardContent className="text-muted-foreground p-6">
               {cryptoData.description ? (
                 <div 
                   dangerouslySetInnerHTML={{ __html: cryptoData.description }}
-                  className="prose prose-sm dark:prose-invert max-w-none"
+                  className="prose prose-sm dark:prose-invert max-w-none prose-headings:text-foreground prose-a:text-primary"
                 />
               ) : (
-                <p>Aucune description disponible pour {cryptoData.name}.</p>
+                <div className="text-center py-10 bg-muted/10 rounded-lg border border-dashed border-muted">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
+                    <AlertTriangle className="h-8 w-8 text-primary/60" />
+                  </div>
+                  <h3 className="text-xl font-medium mb-2">Pas de description</h3>
+                  <p>Aucune description disponible pour {cryptoData.name}.</p>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -538,38 +623,45 @@ export default function CryptoDetailPage() {
         
         {/* Whale Activity tab */}
         <TabsContent value="whale-activity" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Activité des Whales</CardTitle>
+          <Card className="overflow-hidden border-border/30 bg-card/60 backdrop-blur-sm shadow-lg">
+            <CardHeader className="border-b border-border/20">
+              <CardTitle className="flex items-center">
+                <Whale className="h-5 w-5 mr-2 text-primary" />
+                Activité des Whales
+              </CardTitle>
               <CardDescription>
                 Transactions importantes des 10 derniers jours
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-6">
               {cryptoData.whale_data && cryptoData.whale_data.length > 0 ? (
-                <div className="rounded-md border">
+                <div className="rounded-md border border-border/30 overflow-hidden">
                   <table className="w-full caption-bottom text-sm">
                     <thead>
-                      <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
-                        <th className="h-12 px-4 text-left align-middle font-medium">Date</th>
-                        <th className="h-12 px-4 text-left align-middle font-medium">Montant</th>
-                        <th className="h-12 px-4 text-left align-middle font-medium">Valeur</th>
-                        <th className="h-12 px-4 text-left align-middle font-medium">Type</th>
-                        <th className="h-12 px-4 text-left align-middle font-medium">Destination</th>
+                      <tr className="bg-muted/30">
+                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Date</th>
+                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Montant</th>
+                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Valeur</th>
+                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Type</th>
+                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Destination</th>
                       </tr>
                     </thead>
                     <tbody>
                       {cryptoData.whale_data.map((transaction, index) => (
                         <tr 
                           key={index} 
-                          className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted"
+                          className="border-b border-border/30 transition-colors hover:bg-muted/20"
                         >
                           <td className="p-4 align-middle">{formatDate(transaction.date)}</td>
                           <td className="p-4 align-middle font-medium">
                             {formatNumber(transaction.amount)} {cryptoData.symbol}
                           </td>
                           <td className="p-4 align-middle">{formatCurrency(transaction.value_usd)}</td>
-                          <td className="p-4 align-middle capitalize">{transaction.transaction_type}</td>
+                          <td className="p-4 align-middle">
+                            <Badge variant={transaction.transaction_type === 'buy' ? 'default' : 'secondary'} className="capitalize">
+                              {transaction.transaction_type}
+                            </Badge>
+                          </td>
                           <td className="p-4 align-middle capitalize">{transaction.to_type}</td>
                         </tr>
                       ))}
@@ -577,9 +669,12 @@ export default function CryptoDetailPage() {
                   </table>
                 </div>
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-muted-foreground/60" />
-                  <p>Aucune activité de whales détectée récemment.</p>
+                <div className="text-center py-10 bg-muted/10 rounded-lg border border-dashed border-muted">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
+                    <AlertTriangle className="h-8 w-8 text-primary/60" />
+                  </div>
+                  <h3 className="text-xl font-medium mb-2">Aucune activité</h3>
+                  <p className="text-muted-foreground">Aucune activité de whales détectée récemment.</p>
                 </div>
               )}
             </CardContent>
@@ -588,42 +683,53 @@ export default function CryptoDetailPage() {
         
         {/* Links & Resources tab */}
         <TabsContent value="links" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Liens & Ressources</CardTitle>
+          <Card className="overflow-hidden border-border/30 bg-card/60 backdrop-blur-sm shadow-lg">
+            <CardHeader className="border-b border-border/20">
+              <CardTitle className="flex items-center">
+                <Link2 className="h-5 w-5 mr-2 text-primary" />
+                Liens & Ressources
+              </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-2">
+            <CardContent className="p-6">
+              <div className="grid gap-6 md:grid-cols-2">
                 {/* Explorers */}
                 <div>
-                  <h3 className="text-lg font-medium mb-2">Explorateurs de Blockchain</h3>
+                  <h3 className="text-lg font-medium mb-4 flex items-center">
+                    <Layers className="h-4 w-4 mr-2 text-primary" />
+                    Explorateurs de Blockchain
+                  </h3>
                   <div className="space-y-2">
                     {cryptoData.links?.blockchain_site?.filter(Boolean).map((site, index) => (
                       <Button 
                         key={index}
                         variant="outline" 
-                        className="w-full justify-start" 
+                        className="w-full justify-start border-primary/20 hover:bg-primary/5 transition-all" 
                         onClick={() => window.open(site, '_blank')}
                       >
-                        <Globe className="h-4 w-4 mr-2" />
+                        <Globe className="h-4 w-4 mr-2 text-primary" />
                         {new URL(site).hostname}
                       </Button>
                     ))}
                     {(!cryptoData.links?.blockchain_site || 
                      !cryptoData.links.blockchain_site.some(Boolean)) && (
-                      <p className="text-muted-foreground text-sm">Aucun explorateur disponible.</p>
+                      <div className="p-4 rounded-lg bg-muted/10 border border-dashed border-muted">
+                        <p className="text-muted-foreground text-sm">Aucun explorateur disponible.</p>
+                      </div>
                     )}
                   </div>
                 </div>
                 
                 {/* Social Links */}
                 <div>
-                  <h3 className="text-lg font-medium mb-2">Réseaux sociaux</h3>
+                  <h3 className="text-lg font-medium mb-4 flex items-center">
+                    <Users className="h-4 w-4 mr-2 text-primary" />
+                    Réseaux sociaux
+                  </h3>
                   <div className="space-y-2">
                     {cryptoData.links?.twitter_screen_name && (
                       <Button 
                         variant="outline" 
-                        className="w-full justify-start" 
+                        className="w-full justify-start border-primary/20 hover:bg-blue-500/10 hover:text-blue-500 hover:border-blue-500/30 transition-all" 
                         onClick={() => window.open(`https://twitter.com/${cryptoData.links.twitter_screen_name}`, '_blank')}
                       >
                         <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
@@ -636,7 +742,7 @@ export default function CryptoDetailPage() {
                     {cryptoData.links?.subreddit_url && (
                       <Button 
                         variant="outline" 
-                        className="w-full justify-start" 
+                        className="w-full justify-start border-primary/20 hover:bg-orange-500/10 hover:text-orange-500 hover:border-orange-500/30 transition-all" 
                         onClick={() => window.open(cryptoData.links.subreddit_url, '_blank')}
                       >
                         <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
@@ -649,7 +755,7 @@ export default function CryptoDetailPage() {
                     {cryptoData.links?.telegram_channel_identifier && (
                       <Button 
                         variant="outline" 
-                        className="w-full justify-start" 
+                        className="w-full justify-start border-primary/20 hover:bg-blue-400/10 hover:text-blue-400 hover:border-blue-400/30 transition-all" 
                         onClick={() => window.open(`https://t.me/${cryptoData.links.telegram_channel_identifier}`, '_blank')}
                       >
                         <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
@@ -662,7 +768,9 @@ export default function CryptoDetailPage() {
                     {(!cryptoData.links?.twitter_screen_name && 
                       !cryptoData.links?.subreddit_url && 
                       !cryptoData.links?.telegram_channel_identifier) && (
-                      <p className="text-muted-foreground text-sm">Aucun réseau social disponible.</p>
+                      <div className="p-4 rounded-lg bg-muted/10 border border-dashed border-muted">
+                        <p className="text-muted-foreground text-sm">Aucun réseau social disponible.</p>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -672,46 +780,105 @@ export default function CryptoDetailPage() {
         </TabsContent>
       </Tabs>
       
-      {/* Buy/Sell section */}
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>Trader {cryptoData.name}</CardTitle>
+      {/* Buy/Sell section with improved design */}
+      <Card className="mb-10 overflow-hidden border-border/30 bg-card/60 backdrop-blur-sm shadow-lg">
+        <CardHeader className="border-b border-border/20">
+          <CardTitle className="flex items-center">
+            <TrendingUp className="h-5 w-5 mr-2 text-primary" />
+            Trader {cryptoData.name}
+          </CardTitle>
           <CardDescription>
             Achetez et vendez {cryptoData.symbol} directement depuis votre portefeuille
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-6">
           <div className="grid gap-4 md:grid-cols-2">
-            <Button 
-              className="w-full h-20 text-lg"
-              onClick={() => {
-                // Logique pour acheter qui sera implémentée plus tard
-                alert(`Achat de ${cryptoData.symbol} bientôt disponible!`);
-              }}
-            >
-              <ArrowUpIcon className="h-5 w-5 mr-2" />
-              Acheter {cryptoData.symbol}
-            </Button>
+            <div className="p-6 rounded-lg bg-gradient-to-r from-green-500/10 to-primary/5 border border-green-500/20 relative overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-r from-green-500/20 to-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+              
+              <h3 className="text-xl font-bold mb-3 flex items-center">
+                <ArrowUp className="h-5 w-5 mr-2 text-green-500" />
+                Acheter {cryptoData.symbol}
+              </h3>
+              
+              <p className="text-muted-foreground mb-4">
+                Ajoutez {cryptoData.symbol} à votre portefeuille et diversifiez vos investissements en cryptomonnaies.
+              </p>
+              
+              <Button 
+                className="w-full bg-gradient-to-r from-green-500 to-primary group-hover:opacity-90 transition-opacity"
+                onClick={() => {
+                  // Logique pour acheter qui sera implémentée plus tard
+                  alert(`Achat de ${cryptoData.symbol} bientôt disponible!`);
+                }}
+              >
+                <ArrowUp className="h-4 w-4 mr-2" />
+                Acheter {cryptoData.symbol}
+              </Button>
+            </div>
             
-            <Button 
-              variant="outline" 
-              className="w-full h-20 text-lg"
-              onClick={() => {
-                // Logique pour vendre qui sera implémentée plus tard
-                const holding = getCryptoHolding(cryptoId);
-                if (!holding || holding.amount <= 0) {
-                  alert(`Vous ne possédez pas de ${cryptoData.symbol} dans votre portefeuille.`);
-                } else {
-                  alert(`Vente de ${cryptoData.symbol} bientôt disponible!`);
+            <div className="p-6 rounded-lg bg-gradient-to-r from-red-500/10 to-primary/5 border border-red-500/20 relative overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-r from-red-500/20 to-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+              
+              <h3 className="text-xl font-bold mb-3 flex items-center">
+                <ArrowDown className="h-5 w-5 mr-2 text-red-500" />
+                Vendre {cryptoData.symbol}
+              </h3>
+              
+              <p className="text-muted-foreground mb-4">
+                {getCryptoHolding(cryptoId) 
+                  ? `Vous possédez ${getCryptoHolding(cryptoId)?.amount.toFixed(6)} ${cryptoData.symbol} dans votre portefeuille.`
+                  : `Vous ne possédez pas de ${cryptoData.symbol} dans votre portefeuille actuellement.`
                 }
-              }}
-            >
-              <ArrowDownIcon className="h-5 w-5 mr-2" />
-              Vendre {cryptoData.symbol}
-            </Button>
+              </p>
+              
+              <Button 
+                variant="outline" 
+                className="w-full border-red-500/30 text-red-500 hover:bg-red-500/10 group-hover:border-red-500/50 transition-all"
+                disabled={!getCryptoHolding(cryptoId) || getCryptoHolding(cryptoId)?.amount <= 0}
+                onClick={() => {
+                  // Logique pour vendre qui sera implémentée plus tard
+                  const holding = getCryptoHolding(cryptoId);
+                  if (!holding || holding.amount <= 0) {
+                    alert(`Vous ne possédez pas de ${cryptoData.symbol} dans votre portefeuille.`);
+                  } else {
+                    alert(`Vente de ${cryptoData.symbol} bientôt disponible!`);
+                  }
+                }}
+              >
+                <ArrowDown className="h-4 w-4 mr-2" />
+                Vendre {cryptoData.symbol}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Similar Cryptocurrencies section */}
+      <div className="mb-10">
+        <h2 className="text-2xl font-bold mb-6">Cryptomonnaies similaires</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {['bitcoin', 'ethereum', 'ripple', 'cardano'].filter(c => c !== cryptoData.id).map((cryptoId, index) => (
+            <Card key={index} className="overflow-hidden border-border/30 bg-card/60 backdrop-blur-sm shadow-lg transition-all hover:shadow-xl hover:bg-card/80 cursor-pointer" onClick={() => router.push(`/crypto/${cryptoId}`)}>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <span className="font-bold text-primary">{cryptoId.substring(0, 1).toUpperCase()}</span>
+                  </div>
+                  <div>
+                    <h3 className="font-medium">{cryptoId.charAt(0).toUpperCase() + cryptoId.slice(1)}</h3>
+                    <p className="text-xs text-muted-foreground">{cryptoId.substring(0, 3).toUpperCase()}</p>
+                  </div>
+                </div>
+                <div className="bg-muted/20 p-2 rounded flex justify-between items-center">
+                  <span className="text-sm">Prix estimé</span>
+                  <span className="font-medium">$--,---</span>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

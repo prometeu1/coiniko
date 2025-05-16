@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
-import { ArrowUpIcon, ArrowDownIcon, RefreshCw } from "lucide-react";
+import { ArrowUp, ArrowDown, RefreshCw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@/lib/walletContext";
@@ -137,30 +137,42 @@ export function CryptoHoldingCard({
   };
 
   return (
-    <Card className="hover-card overflow-hidden">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between cursor-pointer" onClick={() => window.location.href = `/crypto/${cryptoId}`}>
+    <Card className="overflow-hidden border-border/30 bg-card/60 backdrop-blur-sm shadow-md transition-all duration-300 hover:shadow-lg hover:bg-card/80 hover:border-primary/20">
+      <CardContent className="p-5 relative">
+        {/* Background gradient effect */}
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+        
+        <div className="flex items-center justify-between cursor-pointer group" onClick={() => window.location.href = `/crypto/${cryptoId}`}>
           <div className="flex items-center space-x-3">
-            {/* Logo de la crypto */}
-            <div className="relative w-10 h-10 flex-shrink-0">
+            {/* Logo with better styling */}
+            <div className="relative w-12 h-12 flex-shrink-0 rounded-full overflow-hidden bg-gradient-to-br from-background to-muted p-0.5">
+              <div className="absolute inset-0 bg-primary/5 rounded-full animate-pulse-slow pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               <Image
                 src={imageUrl}
                 alt={name}
-                width={40}
-                height={40}
-                className="crypto-logo"
+                width={48}
+                height={48}
+                className="rounded-full transition-transform duration-300 group-hover:scale-110"
                 onError={(e) => {
                   // Fallback if image fails to load
                   const target = e.target as HTMLImageElement;
-                  target.src = `https://placehold.co/40x40/3b82f6/FFFFFF?text=${symbol.substring(0, 3)}`;
+                  target.src = `https://placehold.co/48x48/3b82f6/FFFFFF?text=${symbol.substring(0, 3)}`;
                 }}
               />
             </div>
 
             {/* Nom et symbole */}
-            <div>
-              <h3 className="font-medium text-foreground hover:text-primary hover:underline transition-colors">{name}</h3>
-              <p className="text-sm text-muted-foreground">{symbol}</p>
+            <div className="overflow-hidden">
+              <h3 className="font-medium text-foreground group-hover:text-primary transition-colors duration-300">{name}</h3>
+              <div className="flex items-center space-x-2">
+                <p className="text-sm text-muted-foreground">{symbol}</p>
+                {/* Price change indicator */}
+                {!isLoading && (
+                  <div className={`text-xs px-2 py-0.5 rounded-full ${priceChange > 0 ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                    {priceChange > 0 ? '+' : ''}{priceChange.toFixed(2)}%
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -169,56 +181,64 @@ export function CryptoHoldingCard({
             <div className="flex items-center justify-end">
               <span className="font-medium">{amount.toFixed(6)} {symbol}</span>
             </div>
-            <div className="text-sm font-medium">
+            <div className="text-sm font-bold text-primary">
               ${currentValue.toFixed(2)}
             </div>
           </div>
         </div>
 
-        {/* Prix et variation */}
-        <div className="mt-3 flex items-center justify-between text-sm">
-          <div>
-            <div className="text-muted-foreground">Prix d'achat: ${purchasePrice.toFixed(2)}</div>
-            <div className="text-muted-foreground flex items-center">
-              Prix actuel: 
-              {isLoading ? (
-                <span className="ml-1 inline-block w-16 h-4 bg-muted animate-pulse rounded"></span>
-              ) : (
-                <span className="ml-1">${currentPrice.toFixed(2)}</span>
+        {/* Price info with improved visualization */}
+        <div className="mt-4 p-3 rounded-lg bg-muted/30 border border-border/30">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-sm text-muted-foreground">Prix d'achat</div>
+            <div className="font-medium">${purchasePrice.toFixed(2)}</div>
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-muted-foreground flex items-center">
+              Prix actuel
+              {isLoading && (
+                <div className="ml-2 h-4 w-4 rounded-full border-2 border-primary/30 border-t-primary animate-spin"></div>
               )}
+            </div>
+            <div className="font-medium flex items-center">
+              ${currentPrice.toFixed(2)}
               {!isLoading && (
                 <RefreshCw 
-                  size={12} 
-                  className="ml-1 text-muted-foreground cursor-pointer hover:text-primary" 
-                  onClick={() => setIsLoading(true)}
+                  size={14} 
+                  className="ml-2 text-muted-foreground cursor-pointer hover:text-primary transition-colors" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsLoading(true);
+                  }}
                 />
               )}
             </div>
           </div>
           
-          {/* Variation */}
-          <div className="flex flex-col items-end">
-            {isLoading ? (
-              <div className="h-4 w-16 bg-muted animate-pulse rounded"></div>
-            ) : (
-              <div className={`flex items-center ${getChangeColor(priceChange)}`}>
-                {priceChange > 0 ? (
-                  <ArrowUpIcon className="h-3 w-3 mr-1" />
-                ) : priceChange < 0 ? (
-                  <ArrowDownIcon className="h-3 w-3 mr-1" />
-                ) : null}
-                <span className="font-medium">{Math.abs(priceChange).toFixed(2)}%</span>
-              </div>
-            )}
-            
-            {/* Profit/Perte */}
-            <div className={`text-xs font-medium ${getChangeColor(profitLoss)}`}>
+          {/* Progress bar for profit/loss visualization */}
+          <div className="mt-3 w-full h-1.5 bg-muted rounded-full overflow-hidden">
+            <div 
+              className={`h-full ${profitLoss >= 0 ? 'bg-green-500' : 'bg-red-500'} transition-all duration-500 ease-out`}
+              style={{ width: `${Math.min(Math.max(50 + Math.min(profitLossPercentage, 200)/2, 5), 95)}%` }}
+            ></div>
+          </div>
+          
+          {/* Profit/Loss with improved styling */}
+          <div className="mt-2 flex items-center justify-between">
+            <div className="text-xs text-muted-foreground">Profit/Perte</div>
+            <div className={`text-sm font-medium flex items-center ${getChangeColor(profitLoss)}`}>
+              {profitLoss > 0 ? (
+                <ArrowUp className="h-3 w-3 mr-1" />
+              ) : profitLoss < 0 ? (
+                <ArrowDown className="h-3 w-3 mr-1" />
+              ) : null}
               {profitLoss > 0 ? "+" : ""}{profitLossPercentage.toFixed(2)}% (${profitLoss.toFixed(2)})
             </div>
           </div>
         </div>
 
-        {/* Boutons de vente */}
+        {/* Action buttons with improved styling */}
         <div className="mt-4 flex gap-2">
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             setIsDialogOpen(open);
@@ -241,11 +261,17 @@ export function CryptoHoldingCard({
             }
           }}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="w-full">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full bg-gradient-to-r from-background to-muted border-accent/20 hover:border-red-500/30 hover:text-red-500 transition-colors"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ArrowDown className="h-4 w-4 mr-2" />
                 Vendre
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="border-border/30 bg-card/80 backdrop-blur-sm">
               <DialogHeader>
                 <DialogTitle>Vendre {symbol}</DialogTitle>
                 <DialogDescription>
@@ -277,7 +303,7 @@ export function CryptoHoldingCard({
                         const percentageDisplay = document.getElementById('percentage-display-dialog');
                         if (percentageDisplay) percentageDisplay.textContent = `${Math.round(percentage)}%`;
                       }}
-                      className="w-full"
+                      className="w-full border-accent/20 focus-visible:ring-accent"
                       step="0.000001"
                       min="0.000001"
                       max={amount}
@@ -357,7 +383,7 @@ export function CryptoHoldingCard({
                   <Label htmlFor="value" className="text-right">
                     Valeur
                   </Label>
-                  <div id="value" className="col-span-3">
+                  <div id="value" className="col-span-3 p-2 rounded bg-muted/20 font-medium">
                     ${(parseFloat(amountToSell || "0") * currentPrice).toFixed(2)}
                   </div>
                 </div>
@@ -367,7 +393,7 @@ export function CryptoHoldingCard({
                   type="button" 
                   variant="outline" 
                   onClick={handleSellAll} 
-                  className="sm:order-1"
+                  className="sm:order-1 border-accent/20 bg-primary/5"
                 >
                   Tout Vendre ({amount.toFixed(6)} {symbol})
                 </Button>
@@ -375,7 +401,7 @@ export function CryptoHoldingCard({
                   type="submit" 
                   onClick={handleSell}
                   disabled={!amountToSell || parseFloat(amountToSell) <= 0 || parseFloat(amountToSell) > amount}
-                  className="sm:order-2"
+                  className="sm:order-2 bg-gradient-to-r from-primary to-accent hover:opacity-90"
                 >
                   Vendre
                 </Button>

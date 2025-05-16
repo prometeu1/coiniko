@@ -24,13 +24,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowUpDown, Plus, Minus, Search, TrendingUp, TrendingDown, DollarSign, Zap } from "lucide-react";
+import { ArrowUpDown, Plus, Minus, Search, TrendingUp, TrendingDown, DollarSign, Zap, Wallet, Globe, ArrowUp, ArrowDown } from "lucide-react";
 import { fetchLatestCryptocurrencyListings } from "@/lib/coinmarketcap";
 import { useWallet } from "@/lib/walletContext";
 import { toast } from "@/components/ui/use-toast";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 // Types for cryptocurrencies
 export type Crypto = {
@@ -96,7 +97,7 @@ export default function Page() {
       cell: ({ row }) => {
         const crypto = row.original;
         return (
-          <div className="flex items-center cursor-pointer" onClick={() => window.location.href = `/crypto/${crypto.id}`}>
+          <div className="flex items-center cursor-pointer">
             <div className="relative w-8 h-8 mr-3">
               <Image
                 src={`https://s2.coinmarketcap.com/static/img/coins/64x64/${crypto.id}.png`}
@@ -251,7 +252,10 @@ export default function Page() {
               variant="ghost" 
               size="icon" 
               className="h-8 w-8 rounded-full bg-green-500/10 text-green-500 hover:bg-green-500/20 hover:text-green-600"
-              onClick={() => openTradeModal('buy', crypto)}
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent row click
+                openTradeModal('buy', crypto);
+              }}
             >
               <Plus className="h-4 w-4" />
             </Button>
@@ -260,7 +264,10 @@ export default function Page() {
               size="icon" 
               className="h-8 w-8 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500/20 hover:text-red-600"
               disabled={!holding}
-              onClick={() => openTradeModal('sell', crypto)}
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent row click
+                openTradeModal('sell', crypto);
+              }}
             >
               <Minus className="h-4 w-4" />
             </Button>
@@ -463,10 +470,12 @@ export default function Page() {
 
   return (
     <div className="container mx-auto py-6 animate-fade-in">
-      {/* Hero section - Improved design without balance display */}
-      <div className="mb-12 relative overflow-hidden rounded-2xl bg-gradient-to-br from-background to-background/50 border border-border/30 p-8 shadow-lg">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-accent/20 rounded-full blur-3xl -z-10 opacity-70 animate-pulse-slow"></div>
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-primary/20 rounded-full blur-3xl -z-10 opacity-70 animate-pulse-slow"></div>
+      {/* Hero section - Improved design */}
+      <div className="mb-12 relative overflow-hidden rounded-2xl bg-gradient-to-br from-background/80 to-background/40 border border-border/30 p-8 shadow-lg backdrop-blur-sm">
+        {/* Animated background elements */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl -z-10 opacity-70 animate-pulse-slow"></div>
+        <div className="absolute top-40 left-20 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -z-10 opacity-50 animate-pulse-slow animation-delay-2000"></div>
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl -z-10 opacity-70 animate-pulse-slow animation-delay-1000"></div>
         
         <div className="max-w-3xl mx-auto text-center">
           <h1 className="page-title page-title-gradient">
@@ -475,13 +484,21 @@ export default function Page() {
           <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
             Explorez, analysez et investissez dans les cryptomonnaies les plus populaires. Suivez leurs performances et optimisez votre portefeuille.
           </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Button className="w-full sm:w-auto bg-gradient-to-r from-primary to-blue-500 hover:opacity-90">
+              <Wallet className="mr-2 h-4 w-4" /> Gérer mon portefeuille
+            </Button>
+            <Button variant="outline" className="w-full sm:w-auto border-primary/20 bg-primary/5">
+              <TrendingUp className="mr-2 h-4 w-4" /> Voir les tendances
+            </Button>
+          </div>
         </div>
       </div>
       
       {/* Search and filter */}
-      <div className="mb-6 glass p-4 rounded-lg animate-slide-up">
+      <div className="mb-8 glass p-4 rounded-lg animate-slide-up border border-border/20 backdrop-blur-sm">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="relative max-w-sm">
+          <div className="relative max-w-sm flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Rechercher une crypto..."
@@ -492,110 +509,252 @@ export default function Page() {
               className="pl-9 bg-background/50 border-accent/20 focus-visible:ring-accent"
             />
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground hidden md:inline">
+          <div className="flex items-center gap-3 flex-wrap">
+            <Button variant="outline" size="sm" className="border-accent/20 hover:bg-accent/5">
+              <TrendingUp className="mr-2 h-3 w-3" /> Les plus performantes
+            </Button>
+            <Button variant="outline" size="sm" className="border-accent/20 hover:bg-accent/5">
+              <TrendingDown className="mr-2 h-3 w-3" /> Les moins performantes
+            </Button>
+            <span className="text-sm text-muted-foreground hidden lg:inline">
               Affichage de {table.getRowModel().rows.length} cryptomonnaies
             </span>
           </div>
         </div>
       </div>
-      
-      {/* Table */}
-      <div className="crypto-table-container animate-slide-up">
-        {isLoading ? (
-          <div className="flex items-center justify-center h-72">
-            <div className="flex flex-col items-center">
-              <div className="relative">
-                <div className="h-16 w-16 rounded-full border-4 border-t-primary border-r-transparent border-l-transparent border-b-transparent animate-spin"></div>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Zap className="h-6 w-6 text-primary" />
-                </div>
-              </div>
-              <p className="mt-4 text-muted-foreground">Chargement des cryptomonnaies...</p>
+
+      {/* Market Overview Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <Card className="overflow-hidden border-border/30 bg-card/60 backdrop-blur-sm shadow-lg">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Capitalisation totale</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">$1.89T</div>
+            <div className="flex items-center text-green-500 text-sm">
+              <ArrowUp className="h-4 w-4 mr-1" />
+              <span>+2.4%</span>
             </div>
-          </div>
-        ) : (
-          <Table className="crypto-table">
-            <TableHeader>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id} className="hover:bg-transparent border-b border-border/30">
-                  {headerGroup.headers.map((header) => {
-                    return (
-                      <TableHead key={header.id} className="py-3">
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext()
-                            )}
-                      </TableHead>
-                    );
-                  })}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() && "selected"}
-                    className="hover:bg-primary/5 transition-colors"
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id} className="py-4">
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan={columns.length}
-                    className="h-24 text-center"
-                  >
-                    Aucun résultat.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        )}
+          </CardContent>
+        </Card>
+        
+        <Card className="overflow-hidden border-border/30 bg-card/60 backdrop-blur-sm shadow-lg">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Volume 24h</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">$84.5B</div>
+            <div className="flex items-center text-red-500 text-sm">
+              <ArrowDown className="h-4 w-4 mr-1" />
+              <span>-3.1%</span>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="overflow-hidden border-border/30 bg-card/60 backdrop-blur-sm shadow-lg">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Dominance BTC</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">52.3%</div>
+            <div className="flex items-center text-green-500 text-sm">
+              <ArrowUp className="h-4 w-4 mr-1" />
+              <span>+0.8%</span>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="overflow-hidden border-border/30 bg-card/60 backdrop-blur-sm shadow-lg">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Cryptos en hausse</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">143</div>
+            <div className="text-muted-foreground text-sm">
+              Sur les 250 cryptos principales
+            </div>
+          </CardContent>
+        </Card>
       </div>
       
-      {/* Pagination */}
-      <div className="flex items-center justify-end space-x-2 py-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
-          className="border-accent/20 hover:bg-accent/5"
-        >
-          Précédent
-        </Button>
-        <div className="text-sm text-muted-foreground">
-          Page {table.getState().pagination.pageIndex + 1} sur{" "}
-          {table.getPageCount()}
+      {/* Table */}
+      <div className="crypto-table-container animate-slide-up mb-8">
+        <Card className="overflow-hidden border-border/30 bg-card/60 backdrop-blur-sm">
+          <CardContent className="p-0">
+            {isLoading ? (
+              <div className="flex items-center justify-center h-72">
+                <div className="flex flex-col items-center">
+                  <div className="relative">
+                    <div className="h-16 w-16 rounded-full border-4 border-t-primary border-r-transparent border-l-transparent border-b-transparent animate-spin"></div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Zap className="h-6 w-6 text-primary" />
+                    </div>
+                  </div>
+                  <p className="mt-4 text-muted-foreground">Chargement des cryptomonnaies...</p>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <Table className="crypto-table">
+                  <TableHeader>
+                    {table.getHeaderGroups().map((headerGroup) => (
+                      <TableRow key={headerGroup.id} className="hover:bg-transparent border-b border-border/30 bg-muted/30">
+                        {headerGroup.headers.map((header) => {
+                          return (
+                            <TableHead key={header.id} className="py-3 text-muted-foreground">
+                              {header.isPlaceholder
+                                ? null
+                                : flexRender(
+                                    header.column.columnDef.header,
+                                    header.getContext()
+                                  )}
+                            </TableHead>
+                          );
+                        })}
+                      </TableRow>
+                    ))}
+                  </TableHeader>
+                  <TableBody>
+                    {table.getRowModel().rows?.length ? (
+                      table.getRowModel().rows.map((row) => (
+                        <TableRow
+                          key={row.id}
+                          data-state={row.getIsSelected() && "selected"}
+                          className="hover:bg-primary/5 transition-colors group cursor-pointer"
+                          onClick={() => window.location.href = `/crypto/${row.original.id}`}
+                        >
+                          {row.getVisibleCells().map((cell) => (
+                            <TableCell key={cell.id} className="py-4 group-hover:text-foreground transition-colors">
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext()
+                              )}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell
+                          colSpan={columns.length}
+                          className="h-24 text-center"
+                        >
+                          Aucun résultat.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+
+                {/* Pagination */}
+                <div className="flex items-center justify-end space-x-2 py-4 px-4 border-t border-border/30">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => table.previousPage()}
+                    disabled={!table.getCanPreviousPage()}
+                    className="border-accent/20 hover:bg-accent/5"
+                  >
+                    Précédent
+                  </Button>
+                  <div className="text-sm text-muted-foreground">
+                    Page {table.getState().pagination.pageIndex + 1} sur{" "}
+                    {table.getPageCount()}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => table.nextPage()}
+                    disabled={!table.getCanNextPage()}
+                    className="border-accent/20 hover:bg-accent/5"
+                  >
+                    Suivant
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+      
+      {/* Featured content */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
+        <div className="md:col-span-2">
+          <h2 className="text-2xl font-bold mb-4">Dernières tendances</h2>
+          <Card className="overflow-hidden border-border/30 bg-card/60 backdrop-blur-sm shadow-lg h-full">
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                <div className="flex items-center gap-4 p-4 rounded-lg bg-muted/20 transition-colors hover:bg-muted/30">
+                  <div className="h-10 w-10 rounded-full bg-green-500/10 flex items-center justify-center">
+                    <TrendingUp className="h-5 w-5 text-green-500" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium">Bitcoin franchit la barre des 42 000$</h3>
+                    <p className="text-sm text-muted-foreground">Le Bitcoin continue sa tendance haussière suite aux annonces récentes de la FED.</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-4 p-4 rounded-lg bg-muted/20 transition-colors hover:bg-muted/30">
+                  <div className="h-10 w-10 rounded-full bg-blue-500/10 flex items-center justify-center">
+                    <Globe className="h-5 w-5 text-blue-500" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium">Ethereum adopte de nouvelles mises à jour</h3>
+                    <p className="text-sm text-muted-foreground">La mise à jour Cancun-Deneb améliore les performances et réduit les frais de transaction.</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-4 p-4 rounded-lg bg-muted/20 transition-colors hover:bg-muted/30">
+                  <div className="h-10 w-10 rounded-full bg-purple-500/10 flex items-center justify-center">
+                    <Zap className="h-5 w-5 text-purple-500" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium">Solana gagne en popularité</h3>
+                    <p className="text-sm text-muted-foreground">L'écosystème Solana attire de plus en plus de développeurs et d'investisseurs.</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
-          className="border-accent/20 hover:bg-accent/5"
-        >
-          Suivant
-        </Button>
+        
+        <div>
+          <h2 className="text-2xl font-bold mb-4">Ressources</h2>
+          <Card className="overflow-hidden border-border/30 bg-card/60 backdrop-blur-sm shadow-lg h-full">
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                <div className="p-4 rounded-lg bg-muted/20 transition-colors hover:bg-muted/30">
+                  <h3 className="font-medium mb-2">Guide du débutant</h3>
+                  <p className="text-sm text-muted-foreground mb-3">Apprenez les bases des cryptomonnaies et du trading.</p>
+                  <Button variant="outline" size="sm" className="w-full border-primary/20 bg-primary/5">
+                    Lire le guide
+                  </Button>
+                </div>
+                
+                <div className="p-4 rounded-lg bg-muted/20 transition-colors hover:bg-muted/30">
+                  <h3 className="font-medium mb-2">Webinaire en direct</h3>
+                  <p className="text-sm text-muted-foreground mb-3">Rejoignez notre prochain webinaire sur les stratégies d'investissement.</p>
+                  <Button variant="outline" size="sm" className="w-full border-primary/20 bg-primary/5">
+                    S'inscrire
+                  </Button>
+                </div>
+                
+                <div className="p-4 rounded-lg bg-muted/20 transition-colors hover:bg-muted/30">
+                  <h3 className="font-medium mb-2">Alertes personnalisées</h3>
+                  <p className="text-sm text-muted-foreground mb-3">Configurez des alertes pour ne jamais manquer une opportunité.</p>
+                  <Button variant="outline" size="sm" className="w-full border-primary/20 bg-primary/5">
+                    Configurer
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Trade Modal */}
       <Dialog open={isTradeModalOpen} onOpenChange={setIsTradeModalOpen}>
-        <DialogContent className="sm:max-w-[425px] glass animate-fade-in">
+        <DialogContent className="sm:max-w-[425px] glass animate-fade-in border-border/30 bg-card/80 backdrop-blur-sm">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">
               {tradeType === 'buy' ? 'Acheter' : 'Vendre'} {selectedCrypto?.symbol}

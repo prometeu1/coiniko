@@ -175,7 +175,9 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     // Vérifier si l'utilisateur a assez d'argent
     const cost = amount * price;
     // Fix for 100% purchase - use a small epsilon value to account for floating point precision
-    if (cost > balance + 0.000001) {
+    const EPSILON = 0.00001; // Marge d'erreur pour les calculs à virgule flottante
+    
+    if (cost > balance + EPSILON) {
       toast({
         title: "Fonds insuffisants",
         description: "Vous n'avez pas assez de fonds pour cet achat.",
@@ -184,8 +186,8 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       return false;
     }
 
-    // Ensure we don't spend more than the actual balance
-    const actualCost = Math.min(cost, balance);
+    // Si l'achat est presque égal au solde complet (à l'EPSILON près), utiliser tout le solde
+    const actualCost = Math.abs(cost - balance) < EPSILON ? balance : cost;
     const actualAmount = actualCost / price;
     
     // Simuler l'achat côté client pour une expérience fluide
