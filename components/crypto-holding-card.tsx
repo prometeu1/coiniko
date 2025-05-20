@@ -41,8 +41,14 @@ export function CryptoHoldingCard({
 
   // Récupérer les données réelles de prix
   useEffect(() => {
+    let isMounted = true;
+    let retryTimeout: NodeJS.Timeout;
+    
     const fetchRealPrice = async () => {
+      if (!isMounted) return;
+      
       setIsLoading(true);
+      setError(null);
       
       try {
         // Convertir l'ID de CoinMarketCap en ID CoinGecko
@@ -51,10 +57,13 @@ export function CryptoHoldingCard({
         // Récupérer les données de prix réelles
         const priceData = await getCryptoPrice(geckoId);
         
+        // Ensure the component is still mounted before updating state
+        if (!isMounted) return;
+        
+        // Utiliser les prix réels sans aucune limitation
         if (priceData) {
-          // Utiliser les prix réels sans aucune limitation
           setCurrentPrice(priceData.current_price);
-          setPriceChange(priceData.price_change_percentage_24h);
+          setPriceChange(priceData.price_change_percentage_24h || 0);
           
           // Utiliser l'image de CoinGecko si disponible
           if (priceData.image) {
@@ -62,28 +71,63 @@ export function CryptoHoldingCard({
           }
         } else {
           console.log(`Pas de données de prix pour ${name}, conservation du prix d'achat`);
-          // Si pas de données, conserver le prix d'achat mais sans changement
-          setCurrentPrice(purchasePrice);
-          setPriceChange(0);
+          // Si pas de données, on garde le prix actuel ou le prix d'achat
+          setCurrentPrice(prevPrice => prevPrice || purchasePrice);
         }
       } catch (err) {
         console.error("Erreur lors du chargement des données de prix:", err);
+        
+        if (!isMounted) return;
+        
         setError("Erreur lors du chargement des données");
         
-        // En cas d'erreur, conserver le prix d'achat
-        setCurrentPrice(purchasePrice);
-        setPriceChange(0);
+        // En cas d'erreur, on garde le prix actuel ou le prix d'achat
+        setCurrentPrice(prevPrice => prevPrice || purchasePrice);
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
     
     fetchRealPrice();
     
-    // Mettre à jour les prix toutes les 10 secondes pour avoir des données plus à jour
-    const intervalId = setInterval(fetchRealPrice, 10000);
+    // Instead of continuous polling, use an increasing backoff on errors
+    let failedAttempts = 0;
     
-    return () => clearInterval(intervalId);
+    const scheduleNextUpdate = () => {
+      // Clear any existing timeouts
+      if (retryTimeout) clearTimeout(retryTimeout);
+      
+      // Base delay is 10 seconds, but increases with failures
+      const baseDelay = 10000;
+      // If we've had failures, add exponential backoff (up to 60 seconds max)
+      const backoffDelay = Math.min(Math.pow(2, failedAttempts) * 1000, 50000);
+      const delay = baseDelay + backoffDelay;
+      
+      retryTimeout = setTimeout(() => {
+        fetchRealPrice().catch(err => {
+          console.error("Error in scheduled price update:", err);
+          failedAttempts++; // Increment failures for next backoff
+          
+          // Reschedule next attempt
+          if (isMounted) {
+            scheduleNextUpdate();
+          }
+        });
+      }, delay);
+    };
+    
+    // Schedule the next update
+    scheduleNextUpdate();
+    
+    // Cleanup function
+    return () => {
+      isMounted = false;
+      if (retryTimeout) {
+        clearTimeout(retryTimeout);
+      }
+    };
   }, [cryptoId, purchasePrice, name]);
 
   // Calculer la valeur actuelle et la variation

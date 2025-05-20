@@ -108,7 +108,14 @@ export default function Page() {
                 onError={(e) => {
                   // Fallback if image fails to load
                   const target = e.target as HTMLImageElement;
-                  target.src = `https://placehold.co/32x32/3b82f6/FFFFFF?text=${crypto.symbol.substring(0, 3)}`;
+                  // Try CoinGecko API as fallback
+                  const geckoId = crypto.name.toLowerCase().replace(/ /g, '-');
+                  target.src = `https://assets.coingecko.com/coins/images/1/small/${geckoId}.png`;
+                  
+                  // Second fallback if CoinGecko also fails
+                  target.onerror = () => {
+                    target.src = `https://placehold.co/32x32/3b82f6/FFFFFF?text=${crypto.symbol.substring(0, 3)}`;
+                  };
                 }}
               />
             </div>

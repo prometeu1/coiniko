@@ -61,6 +61,7 @@ function SignInContent() {
   useEffect(() => {
     const errorParam = searchParams.get('error');
     if (errorParam) {
+      console.error('Auth error from URL:', errorParam);
       setError(`Erreur d'authentification: ${errorParam}`);
     }
   }, [searchParams]);
@@ -68,27 +69,42 @@ function SignInContent() {
   // Redirect if already authenticated
   useEffect(() => {
     if (status === "authenticated" && session) {
+      console.log('User authenticated, redirecting to home');
       router.push("/");
     }
   }, [status, session, router]);
 
   const handleGoogleSignIn = async () => {
-    setIsLoading(true);
-    setError(null);
-    
     try {
+      setIsLoading(true);
+      setError(null);
+      
       console.log("Tentative de connexion avec Google...");
       
-      await signIn("google", {
-        redirect: true,
+      // Définir un timeout pour s'assurer que signIn ne reste pas bloqué
+      const timeoutPromise = new Promise<{error?: string; url?: string}>((_, reject) =>
+        setTimeout(() => reject(new Error("Timeout dépassé")), 20000)
+      );
+      
+      const authPromise = signIn("google", {
+        redirect: false, // Ne pas rediriger automatiquement
         callbackUrl: "/"
       });
       
-      // Cette partie ne sera pas exécutée avec redirect: true
-      setIsLoading(false);
+      // Utilisez Promise.race pour gérer le timeout
+      const result = await Promise.race([authPromise, timeoutPromise]) as {error?: string; url?: string} | undefined;
+      
+      if (result?.error) {
+        console.error("Erreur retournée par signIn:", result.error);
+        setError(`Erreur de connexion: ${result.error}`);
+      } else if (result?.url) {
+        console.log("Redirection vers:", result.url);
+        router.push(result.url);
+      }
     } catch (error) {
-      console.error("Erreur lors de la connexion avec Google:", error);
+      console.error("Exception lors de la connexion avec Google:", error);
       setError("Erreur de connexion. Veuillez réessayer.");
+    } finally {
       setIsLoading(false);
     }
   };
@@ -127,6 +143,15 @@ function SignInContent() {
           {error && (
             <div className="mt-4 p-3 bg-destructive/10 text-destructive rounded-md text-sm">
               {error}
+              <div className="mt-2 text-xs">
+                <Button 
+                  variant="link" 
+                  className="h-auto p-0 text-destructive"
+                  onClick={() => setError(null)}
+                >
+                  Effacer cette erreur
+                </Button>
+              </div>
             </div>
           )}
         </CardHeader>

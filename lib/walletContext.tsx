@@ -188,20 +188,21 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
     // Si l'achat est presque égal au solde complet (à l'EPSILON près), utiliser tout le solde
     const actualCost = Math.abs(cost - balance) < EPSILON ? balance : cost;
-    const actualAmount = actualCost / price;
+    // Calculate using the fixed cost to avoid rounding issues
+    const actualAmount = parseFloat((actualCost / price).toFixed(8));
     
     // Simuler l'achat côté client pour une expérience fluide
-    // Mettre à jour le solde
-    setBalance(prevBalance => prevBalance - actualCost);
+    // Mettre à jour le solde avec the proper precision
+    setBalance(prevBalance => parseFloat((prevBalance - actualCost).toFixed(2)));
     
     // Ajouter ou mettre à jour le holding
     const existingHoldingIndex = holdings.findIndex(h => h.cryptoId === cryptoId);
     if (existingHoldingIndex >= 0) {
       const updatedHoldings = [...holdings];
       const existingHolding = updatedHoldings[existingHoldingIndex];
-      const newAmount = existingHolding.amount + actualAmount;
-      const newTotalInvested = existingHolding.totalInvested + actualCost;
-      const newAveragePrice = newTotalInvested / newAmount;
+      const newAmount = parseFloat((existingHolding.amount + actualAmount).toFixed(8));
+      const newTotalInvested = parseFloat((existingHolding.totalInvested + actualCost).toFixed(2));
+      const newAveragePrice = parseFloat((newTotalInvested / newAmount).toFixed(2));
       
       updatedHoldings[existingHoldingIndex] = {
         ...existingHolding,
@@ -212,7 +213,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       
       setHoldings(updatedHoldings);
     } else {
-      // Créer un nouveau holding
+      // Créer un nouveau holding with proper precision
       const newHolding: Holding = {
         id: generateId(),
         cryptoId,
@@ -220,7 +221,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         symbol: cryptoSymbol,
         amount: actualAmount,
         purchasePrice: price,
-        totalInvested: actualCost
+        totalInvested: parseFloat(actualCost.toFixed(2))
       };
       
       setHoldings(prevHoldings => [...prevHoldings, newHolding]);
@@ -294,12 +295,12 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       return false;
     }
     
-    // Calculer la valeur de la vente
-    const saleValue = amount * price;
+    // Calculer la valeur de la vente with the proper precision
+    const saleValue = parseFloat((amount * price).toFixed(2));
     
     // Simuler la vente côté client pour une expérience fluide
-    // Mettre à jour le solde
-    setBalance(prevBalance => prevBalance + saleValue);
+    // Mettre à jour le solde with the proper precision
+    setBalance(prevBalance => parseFloat((prevBalance + saleValue).toFixed(2)));
     
     // Mettre à jour ou supprimer le holding
     const updatedHoldings = [...holdings];
@@ -307,18 +308,22 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     
     if (holdingIndex >= 0) {
       const holding = updatedHoldings[holdingIndex];
-      const newAmount = holding.amount - amount;
+      const newAmount = parseFloat((holding.amount - amount).toFixed(8));
       
       if (newAmount <= 0) {
         // Supprimer le holding si la quantité devient 0 ou négative
         updatedHoldings.splice(holdingIndex, 1);
       } else {
-        // Mettre à jour le holding avec la nouvelle quantité
-        // Note: le prix moyen d'achat reste le même
+        // Calculate the prorated investment amount based on the proportion of coins sold
+        const soldProportion = amount / holding.amount;
+        const soldInvestment = parseFloat((holding.totalInvested * soldProportion).toFixed(2));
+        const newTotalInvested = parseFloat((holding.totalInvested - soldInvestment).toFixed(2));
+        
+        // Mettre à jour le holding avec la nouvelle quantité and investissement total
         updatedHoldings[holdingIndex] = {
           ...holding,
           amount: newAmount,
-          totalInvested: holding.totalInvested * (newAmount / holding.amount)
+          totalInvested: newTotalInvested
         };
       }
       

@@ -46,34 +46,87 @@ export default function WalletPage() {
       setIsLoading(true);
       const prices: Record<string, number> = {};
       
-      for (const holding of holdings) {
+      // Try from localStorage first to reduce API calls
+      if (typeof window !== 'undefined') {
         try {
-          const geckoId = mapCoinMarketCapToGeckoId(holding.cryptoId);
-          // Récupérer le prix réel sans limitation
-          const priceData = await getCryptoPrice(geckoId);
+          const cachedPrices = localStorage.getItem('wallet_prices');
+          const cacheTimestamp = localStorage.getItem('wallet_prices_timestamp');
           
-          if (priceData) {
-            // Utiliser le prix réel du marché sans aucune limitation
-            prices[holding.cryptoId] = priceData.current_price;
-          } else {
-            // Si pas de prix disponible, utiliser le prix d'achat
-            prices[holding.cryptoId] = holding.purchasePrice;
+          if (cachedPrices && cacheTimestamp) {
+            const cachedTime = parseInt(cacheTimestamp);
+            
+            // Use cache if less than 10 minutes old
+            if (Date.now() - cachedTime < 10 * 60 * 1000) {
+              const parsedPrices = JSON.parse(cachedPrices);
+              
+              // Only use cached prices if we have prices for all current holdings
+              const hasAllHoldings = holdings.every(h => parsedPrices[h.cryptoId]);
+              
+              if (hasAllHoldings) {
+                setCurrentPrices(parsedPrices);
+                setIsLoading(false);
+                return;
+              }
+            }
           }
         } catch (err) {
-          console.error(`Error fetching price for ${holding.name}:`, err);
-          // En cas d'erreur, utiliser le prix d'achat
-          prices[holding.cryptoId] = holding.purchasePrice;
+          console.error("Error reading from localStorage:", err);
+        }
+      }
+      
+      // Set a limit to avoid too many concurrent API calls (which often causes rate limit issues)
+      const fetchBatchSize = 3;
+      
+      for (let i = 0; i < holdings.length; i += fetchBatchSize) {
+        const batchHoldings = holdings.slice(i, i + fetchBatchSize);
+        
+        await Promise.all(
+          batchHoldings.map(async (holding) => {
+            try {
+              const geckoId = mapCoinMarketCapToGeckoId(holding.cryptoId);
+              
+              // Récupérer le prix réel sans limitation
+              const priceData = await getCryptoPrice(geckoId);
+              
+              if (priceData) {
+                // Utiliser le prix réel du marché sans aucune limitation
+                prices[holding.cryptoId] = priceData.current_price;
+              } else {
+                // Si pas de prix disponible, utiliser le prix d'achat
+                prices[holding.cryptoId] = holding.purchasePrice;
+              }
+            } catch (err) {
+              console.error(`Error fetching price for ${holding.name}:`, err);
+              // En cas d'erreur, utiliser le prix d'achat
+              prices[holding.cryptoId] = holding.purchasePrice;
+            }
+          })
+        );
+        
+        // Small delay between batches to avoid rate limiting
+        if (i + fetchBatchSize < holdings.length) {
+          await new Promise(r => setTimeout(r, 500));
         }
       }
       
       setCurrentPrices(prices);
       setIsLoading(false);
+      
+      // Save to localStorage
+      if (typeof window !== 'undefined' && Object.keys(prices).length > 0) {
+        try {
+          localStorage.setItem('wallet_prices', JSON.stringify(prices));
+          localStorage.setItem('wallet_prices_timestamp', Date.now().toString());
+        } catch (err) {
+          console.error("Error saving to localStorage:", err);
+        }
+      }
     };
     
     fetchCurrentPrices();
     
-    // Refresh prices every 10 seconds
-    const interval = setInterval(fetchCurrentPrices, 10000);
+    // Refresh prices every 30 seconds instead of 10 to reduce API calls
+    const interval = setInterval(fetchCurrentPrices, 30000);
     return () => clearInterval(interval);
   }, [holdings]);
   
@@ -172,7 +225,7 @@ export default function WalletPage() {
     }).format(value);
   };
 
-  // Générer des données de graphique basées sur les transactions réelles et les prix actuels
+  // Generate a smoother chart with fewer points to reduce visual glitches
   const portfolioChartData = useMemo(() => {
     if (transactions.length === 0) {
       // Si aucune transaction, montrer la balance initiale avec une courbe plate
@@ -189,6 +242,11 @@ export default function WalletPage() {
     
     // Date de la première transaction
     const firstTransactionDate = new Date(sortedTransactions[0].timestamp);
+    // S'assurer que la première date est au moins d'une semaine avant aujourd'hui pour un graphique plus lisible
+    const minStartDate = new Date();
+    minStartDate.setDate(minStartDate.getDate() - 7);
+    const startDate = firstTransactionDate < minStartDate ? firstTransactionDate : minStartDate;
+    
     const currentDate = new Date();
     
     // Créer un tableau pour stocker les valeurs du portefeuille au fil du temps
@@ -197,31 +255,39 @@ export default function WalletPage() {
     // Commencer avec la balance initiale
     const initialBalance = 100000; // Solde de départ standard
     
-    // Commencer avec la balance initiale
-    let runningBalance = initialBalance;
-    let cryptoHoldings: Record<string, { amount: number, price: number, cryptoId: string }> = {};
-    
     // Ajouter le point de départ
     dataPoints.push({ 
-      date: formatDateShort(firstTransactionDate), 
-      value: runningBalance,
-      formatted: formatCurrencyDisplay(runningBalance)
+      date: formatDateShort(startDate), 
+      value: initialBalance,
+      formatted: formatCurrencyDisplay(initialBalance)
     });
     
-    // Obtenir les dates des transactions (sans duplications)
-    const transactionDates = Array.from(new Set(
-      sortedTransactions.map(t => formatDateShort(new Date(t.timestamp)))
-    ));
+    // Générer des points de données pour chaque semaine entre le début et aujourd'hui
+    // Cela donne une courbe plus lisse avec moins de points
+    const weeklyDates: Date[] = [];
+    let currentWeek = new Date(startDate);
     
-    // Ajouter les dates intermédiaires si nécessaire (pour un graphique plus fluide)
-    const months = getMonthsBetween(firstTransactionDate, currentDate);
-    const allDates = Array.from(new Set([...transactionDates, ...months])).sort();
+    // Generate weekly points
+    while (currentWeek < currentDate) {
+      weeklyDates.push(new Date(currentWeek));
+      // Add 7 days
+      currentWeek.setDate(currentWeek.getDate() + 7);
+    }
     
-    // Pour chaque date, calculer la valeur du portefeuille
-    let lastCalculatedValue = runningBalance;
+    // Add today's date if it's not already in the list
+    const today = new Date(currentDate);
+    today.setHours(0, 0, 0, 0);
     
-    allDates.forEach((dateString, index) => {
-      const date = parseDate(dateString);
+    if (weeklyDates.length === 0 || 
+        weeklyDates[weeklyDates.length - 1].getTime() !== today.getTime()) {
+      weeklyDates.push(today);
+    }
+    
+    // Calculer la valeur du portefeuille pour chaque date
+    weeklyDates.forEach((date, index) => {
+      // Réinitialiser les valeurs pour le calcul
+      let runningBalance = initialBalance;
+      let cryptoHoldings: Record<string, { amount: number, price: number, cryptoId: string }> = {};
       
       // Appliquer toutes les transactions jusqu'à cette date
       sortedTransactions.forEach(transaction => {
@@ -258,62 +324,37 @@ export default function WalletPage() {
         
         // Pour la date d'aujourd'hui, utiliser le prix actuel si disponible
         let price = holding.price;
-        if (dateString === "Aujourd'hui" || dateString === formatDateShort(currentDate)) {
-          // Utiliser le prix actuel du marché
+        
+        // Si c'est la dernière date (aujourd'hui), utiliser les prix actuels
+        if (index === weeklyDates.length - 1) {
           price = currentPrices[holding.cryptoId] || holding.price;
         }
         
         return total + holding.amount * price;
       }, 0);
       
-      const totalValue = runningBalance + cryptoValue;
+      // Éviter les valeurs négatives dans le graphique
+      const totalValue = Math.max(0, runningBalance) + cryptoValue;
       
-      // Ajouter des points de données plus fréquemment
-      if (Math.abs(totalValue - lastCalculatedValue) > 100 || 
-          index === 0 || 
-          index === allDates.length - 1 || 
-          index % 2 === 0) {
-        
-        // Stocker la valeur précédente pour calculer le % de changement dans le tooltip
-        const previousValue = dataPoints.length > 0 ? dataPoints[dataPoints.length - 1].value : undefined;
-        
-        dataPoints.push({ 
-          date: dateString, 
-          value: totalValue,
-          previousValue,
-          formatted: formatCurrencyDisplay(totalValue)
-        });
-        lastCalculatedValue = totalValue;
-      }
-    });
-    
-    // Ajuster le dernier point pour qu'il corresponde exactement à la valeur actuelle du portefeuille
-    const finalValue = balance + portfolioValue;
-    
-    // Ajouter le point final (aujourd'hui) avec le prix actuel réel
-    const today = formatDateShort(currentDate);
-    const hasToday = dataPoints.some(dp => dp.date === today || dp.date === "Aujourd'hui");
-    
-    if (!hasToday) {
+      // Store previous value for tooltip
       const previousValue = dataPoints.length > 0 ? dataPoints[dataPoints.length - 1].value : undefined;
       
+      // Format the date
+      const formattedDate = index === weeklyDates.length - 1 
+        ? "Aujourd'hui" 
+        : formatDateShort(date);
+      
+      // Add data point
       dataPoints.push({ 
-        date: "Aujourd'hui", 
-        value: finalValue,
+        date: formattedDate, 
+        value: totalValue,
         previousValue,
-        formatted: formatCurrencyDisplay(finalValue)
+        formatted: formatCurrencyDisplay(totalValue)
       });
-    } else {
-      // Mettre à jour le point d'aujourd'hui avec la valeur réelle
-      const todayIndex = dataPoints.findIndex(dp => dp.date === today || dp.date === "Aujourd'hui");
-      if (todayIndex !== -1) {
-        dataPoints[todayIndex].value = finalValue;
-        dataPoints[todayIndex].formatted = formatCurrencyDisplay(finalValue);
-      }
-    }
+    });
     
     return dataPoints;
-  }, [transactions, balance, portfolioValue, currentPrices]);
+  }, [transactions, balance, portfolioValue, currentPrices, formatCurrencyDisplay, formatDateShort]);
   
   // Composant personnalisé pour le tooltip du graphique
   const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
@@ -394,7 +435,13 @@ export default function WalletPage() {
               </div>
             </CardHeader>
             <CardContent>
-                            <div className={`text-2xl font-bold ${profitLoss >= 0 ? "text-green-500" : "text-red-500"}`}>                {isLoading ? (                  <span className="inline-block w-24 h-6 bg-muted animate-pulse rounded"></span>                ) : (                  <>{profitLoss >= 0 ? "+" : ""}{formatCurrencyDisplay(profitLoss)} ({profitLossPercentage.toFixed(2)}%)</>                )}              </div>
+                            <div className={`text-2xl font-bold ${profitLoss >= 0 ? "text-green-500" : "text-red-500"}`}>
+                {isLoading ? (
+                  <span className="inline-block w-24 h-6 bg-muted animate-pulse rounded"></span>
+                ) : (
+                  <>{profitLoss >= 0 ? "+" : ""}{formatCurrencyDisplay(profitLoss)} ({profitLossPercentage.toFixed(2)}%)</>
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">
                 Depuis le début de vos investissements
               </p>
@@ -420,7 +467,7 @@ export default function WalletPage() {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="py-4">
+          <CardContent className="p-4">
             <div className="h-[350px]">
               <ResponsiveContainer width="100%" height="100%">
                 <RechartsAreaChart

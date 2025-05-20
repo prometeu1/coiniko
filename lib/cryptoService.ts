@@ -22,6 +22,51 @@ const API_KEY = process.env.NEXT_PUBLIC_COINGECKO_API_KEY || '';
 const API_BASE_URL = 'https://api.coingecko.com/api/v3';
 const API_PARAMS = API_KEY ? `&x_cg_demo_api_key=${API_KEY}` : '';
 
+// Options pour contrôler le nombre de tentatives et le délai entre les tentatives
+const API_OPTIONS = {
+  MAX_RETRIES: 3,
+  RETRY_DELAY: 1000, // Millisecondes
+  REQUEST_TIMEOUT: 8000 // 8 secondes
+};
+
+// Fonction pour retarder l'exécution (pour les retries)
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Fonction pour essayer de récupérer les données depuis le stockage local (si disponible)
+const getFromLocalStorage = (key: string) => {
+  if (typeof window === 'undefined') return null;
+  
+  try {
+    const data = localStorage.getItem(key);
+    const timestamp = localStorage.getItem(`${key}_timestamp`);
+    
+    if (data && timestamp) {
+      const parsedTimestamp = parseInt(timestamp);
+      // Vérifier si les données sont encore valides (moins de 15 minutes)
+      if (Date.now() - parsedTimestamp < 15 * 60 * 1000) {
+        console.log(`Using local storage data for ${key}`);
+        return JSON.parse(data);
+      }
+    }
+  } catch (error) {
+    console.error('Error reading from localStorage:', error);
+  }
+  
+  return null;
+};
+
+// Fonction pour enregistrer des données dans le stockage local (si disponible)
+const saveToLocalStorage = (key: string, data: any) => {
+  if (typeof window === 'undefined') return;
+  
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+    localStorage.setItem(`${key}_timestamp`, Date.now().toString());
+  } catch (error) {
+    console.error('Error saving to localStorage:', error);
+  }
+};
+
 // Liste des IDs des cryptos les plus populaires
 const POPULAR_CRYPTO_IDS = [
   'bitcoin',
@@ -51,13 +96,13 @@ const POPULAR_CRYPTO_IDS = [
   'compound-governance-token'
 ];
 
-// Données de fallback pour assurer le fonctionnement de l'application en cas d'erreur API
+// Ajouter plus de données de fallback
 const FALLBACK_PRICES: Record<string, CryptoPrice> = {
   'bitcoin': {
     id: 'bitcoin',
     symbol: 'btc',
     name: 'Bitcoin',
-    current_price: 103771.00,
+    current_price: 68741.00,
     price_change_percentage_24h: 1.53,
     image: 'https://assets.coingecko.com/coins/images/1/large/bitcoin.png'
   },
@@ -65,7 +110,7 @@ const FALLBACK_PRICES: Record<string, CryptoPrice> = {
     id: 'ethereum',
     symbol: 'eth',
     name: 'Ethereum',
-    current_price: 3256.42,
+    current_price: 3852.42,
     price_change_percentage_24h: 1.87,
     image: 'https://assets.coingecko.com/coins/images/279/large/ethereum.png'
   },
@@ -76,70 +121,168 @@ const FALLBACK_PRICES: Record<string, CryptoPrice> = {
     current_price: 572.45,
     price_change_percentage_24h: 0.76,
     image: 'https://assets.coingecko.com/coins/images/825/large/bnb-icon2_2x.png'
+  },
+  'ripple': {
+    id: 'ripple',
+    symbol: 'xrp',
+    name: 'XRP',
+    current_price: 0.55,
+    price_change_percentage_24h: 1.83,
+    image: 'https://assets.coingecko.com/coins/images/44/large/xrp-symbol-white-128.png'
+  },
+  'cardano': {
+    id: 'cardano',
+    symbol: 'ada',
+    name: 'Cardano',
+    current_price: 0.44,
+    price_change_percentage_24h: 2.14,
+    image: 'https://assets.coingecko.com/coins/images/975/large/cardano.png'
+  },
+  'solana': {
+    id: 'solana',
+    symbol: 'sol',
+    name: 'Solana',
+    current_price: 145.32,
+    price_change_percentage_24h: 3.1,
+    image: 'https://assets.coingecko.com/coins/images/4128/large/solana.png'
+  },
+  'polkadot': {
+    id: 'polkadot',
+    symbol: 'dot',
+    name: 'Polkadot',
+    current_price: 6.85,
+    price_change_percentage_24h: 2.14,
+    image: 'https://assets.coingecko.com/coins/images/12171/large/polkadot.png'
+  },
+  'dogecoin': {
+    id: 'dogecoin',
+    symbol: 'doge',
+    name: 'Dogecoin',
+    current_price: 0.1243,
+    price_change_percentage_24h: 0.95,
+    image: 'https://assets.coingecko.com/coins/images/5/large/dogecoin.png'
   }
 };
 
-// Fonction pour récupérer les prix depuis CoinGecko
+// Fonction pour récupérer les prix depuis CoinGecko avec retries
 export const fetchCryptoPrices = async (): Promise<Record<string, CryptoPrice>> => {
   const now = Date.now();
+  
+  // Vérifier d'abord dans localStorage
+  const localData = getFromLocalStorage('crypto_prices');
+  if (localData) {
+    // Mettre à jour le cache mémoire
+    priceCache = localData;
+    lastFetchTime = now;
+    return localData;
+  }
   
   // Utiliser le cache si les données sont récentes
   if (Object.keys(priceCache).length > 0 && now - lastFetchTime < CACHE_DURATION) {
     return priceCache;
   }
   
-  try {
-    // Tenter de récupérer les données depuis l'API CoinGecko avec un timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000); // Timeout de 8 secondes
-    
-    const response = await fetch(
-      `${API_BASE_URL}/coins/markets?vs_currency=usd&ids=${POPULAR_CRYPTO_IDS.join(',')}&order=market_cap_desc&per_page=100&page=1&sparkline=false&price_change_percentage=24h${API_PARAMS}`,
-      { 
-        signal: controller.signal,
-        cache: 'no-store', // Éviter les problèmes de cache
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
+  let retryCount = 0;
+  
+  while (retryCount < API_OPTIONS.MAX_RETRIES) {
+    try {
+      // Tenter de récupérer les données depuis l'API CoinGecko avec un timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), API_OPTIONS.REQUEST_TIMEOUT);
+      
+      const response = await fetch(
+        `${API_BASE_URL}/coins/markets?vs_currency=usd&ids=${POPULAR_CRYPTO_IDS.join(',')}&order=market_cap_desc&per_page=100&page=1&sparkline=false&price_change_percentage=24h${API_PARAMS}`,
+        { 
+          signal: controller.signal,
+          cache: 'no-store', // Éviter les problèmes de cache
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        }
+      ).catch(err => {
+        console.error(`Network error in fetchCryptoPrices:`, err);
+        throw new Error(`Network error: ${err.message}`);
+      });
+      
+      clearTimeout(timeoutId);
+      
+      // Gestion du cas rate limit (429)
+      if (response.status === 429) {
+        retryCount++;
+        console.log(`Rate limited (429), attempt ${retryCount} of ${API_OPTIONS.MAX_RETRIES}`);
+        
+        if (retryCount < API_OPTIONS.MAX_RETRIES) {
+          // Délai exponentiel entre les tentatives
+          await delay(API_OPTIONS.RETRY_DELAY * Math.pow(2, retryCount));
+          continue;
+        } else {
+          throw new Error(`Rate limited (429). Too many requests to the API.`);
         }
       }
-    );
-    
-    clearTimeout(timeoutId);
-    
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
-    
-    const data: CryptoPrice[] = await response.json();
-    
-    // Mettre à jour le cache
-    const newCache: Record<string, CryptoPrice> = {};
-    data.forEach(crypto => {
-      newCache[crypto.id] = crypto;
-    });
-    
-    priceCache = newCache;
-    lastFetchTime = now;
-    
-    return priceCache;
-  } catch (error) {
-    console.error('Erreur de récupération des prix:', error);
-    
-    // Si nous avons un cache, l'utiliser même si expiré
-    if (Object.keys(priceCache).length > 0) {
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const data: CryptoPrice[] = await response.json().catch(err => {
+        console.error(`JSON parse error in fetchCryptoPrices:`, err);
+        throw new Error(`JSON parse error: ${err.message}`);
+      });
+      
+      // Mettre à jour le cache
+      const newCache: Record<string, CryptoPrice> = {};
+      data.forEach(crypto => {
+        newCache[crypto.id] = crypto;
+      });
+      
+      priceCache = newCache;
+      lastFetchTime = now;
+      
+      // Sauvegarder dans localStorage
+      saveToLocalStorage('crypto_prices', newCache);
+      
       return priceCache;
+    } catch (error) {
+      console.error(`Attempt ${retryCount + 1} failed in fetchCryptoPrices:`, error);
+      retryCount++;
+      
+      if (retryCount >= API_OPTIONS.MAX_RETRIES) {
+        console.error('Tout les essais ont échoué, utilisation des fallback ou cache');
+        break;
+      }
+      
+      // Wait before retrying
+      await delay(API_OPTIONS.RETRY_DELAY * Math.pow(2, retryCount));
     }
-    
-    // Si vraiment rien, renvoyer les données de fallback
-    console.log('Using fallback price data');
-    return FALLBACK_PRICES;
   }
+  
+  // Si nous avons un cache, l'utiliser même si expiré
+  if (Object.keys(priceCache).length > 0) {
+    console.log('Using memory cache after multiple failures');
+    return priceCache;
+  }
+  
+  // Si vraiment rien, renvoyer les données de fallback
+  console.log('Using fallback price data');
+  return FALLBACK_PRICES;
 };
 
-// Fonction pour obtenir le prix d'une seule crypto directement
+// Fonction pour obtenir le prix d'une seule crypto directement avec retry
 const fetchSingleCryptoPrice = async (geckoId: string): Promise<CryptoPrice | null> => {
   try {
+    // Vérifier d'abord dans localStorage
+    const localStorageKey = `crypto_price_${geckoId}`;
+    const localData = getFromLocalStorage(localStorageKey);
+    if (localData) {
+      // Mettre à jour le cache individuel en mémoire 
+      individualCache[geckoId] = {
+        data: localData,
+        timestamp: Date.now()
+      };
+      return localData;
+    }
+    
     // Vérifier si nous avons des données en cache récentes
     const cachedData = individualCache[geckoId];
     const now = Date.now();
@@ -148,116 +291,196 @@ const fetchSingleCryptoPrice = async (geckoId: string): Promise<CryptoPrice | nu
       return cachedData.data;
     }
     
-    // Si pas de cache ou expiré, faire une requête spécifique pour cette crypto avec timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000); // Timeout de 8 secondes
+    let retryCount = 0;
     
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/coins/markets?vs_currency=usd&ids=${geckoId}&order=market_cap_desc&per_page=1&page=1&sparkline=false&price_change_percentage=24h${API_PARAMS}`,
-        { 
-          signal: controller.signal,
-          cache: 'no-store',
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
+    while (retryCount < API_OPTIONS.MAX_RETRIES) {
+      try {
+        // Si pas de cache ou expiré, faire une requête spécifique pour cette crypto avec timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), API_OPTIONS.REQUEST_TIMEOUT);
+        
+        const response = await fetch(
+          `${API_BASE_URL}/coins/markets?vs_currency=usd&ids=${geckoId}&order=market_cap_desc&per_page=1&page=1&sparkline=false&price_change_percentage=24h${API_PARAMS}`,
+          { 
+            signal: controller.signal,
+            cache: 'no-store',
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json'
+            }
+          }
+        ).catch(err => {
+          console.error(`Network error fetching ${geckoId}:`, err);
+          throw new Error(`Network error: ${err.message}`);
+        });
+        
+        clearTimeout(timeoutId);
+        
+        // Gestion du rate limit (429)
+        if (response.status === 429) {
+          retryCount++;
+          console.log(`Rate limited (429), attempt ${retryCount} of ${API_OPTIONS.MAX_RETRIES}`);
+          
+          if (retryCount < API_OPTIONS.MAX_RETRIES) {
+            // Délai exponentiel entre les tentatives
+            await delay(API_OPTIONS.RETRY_DELAY * Math.pow(2, retryCount));
+            continue;
+          } else {
+            throw new Error(`Rate limited (429). Too many requests to the API.`);
           }
         }
-      );
-      
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data && data.length > 0) {
-        // Mettre à jour le cache individuel
-        individualCache[geckoId] = {
-          data: data[0],
-          timestamp: now
-        };
         
-        return data[0];
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
+        
+        const data = await response.json().catch(err => {
+          console.error(`JSON parse error for ${geckoId}:`, err);
+          throw new Error(`JSON parse error: ${err.message}`);
+        });
+        
+        if (data && data.length > 0) {
+          // Mettre à jour le cache individuel
+          individualCache[geckoId] = {
+            data: data[0],
+            timestamp: now
+          };
+          
+          // Sauvegarder dans localStorage
+          saveToLocalStorage(localStorageKey, data[0]);
+          
+          return data[0];
+        }
+        
+        // Si donnée pas trouvée, vérifier dans les fallbacks
+        if (FALLBACK_PRICES[geckoId]) {
+          console.log(`Using fallback price for ${geckoId}`);
+          return FALLBACK_PRICES[geckoId];
+        }
+        
+        // Si pas de fallback spécifique mais que c'est bitcoin, ethereum ou bnb, créer un fallback générique
+        if (['bitcoin', 'ethereum', 'binancecoin'].includes(geckoId)) {
+          return FALLBACK_PRICES[geckoId];
+        }
+        
+        // Créer un fallback générique
+        const fallbackData = createFallbackCryptoPrice(geckoId);
+        return fallbackData;
+      } catch (fetchError) {
+        console.error(`Attempt ${retryCount + 1} failed for ${geckoId}:`, fetchError);
+        retryCount++;
+        
+        if (retryCount >= API_OPTIONS.MAX_RETRIES) {
+          console.error(`All attempts failed for ${geckoId}`);
+          break;
+        }
+        
+        // Wait before retrying
+        await delay(API_OPTIONS.RETRY_DELAY * Math.pow(2, retryCount));
       }
-      
-      // Si donnée pas trouvée, vérifier dans les fallbacks
-      if (FALLBACK_PRICES[geckoId]) {
-        return FALLBACK_PRICES[geckoId];
-      }
-      
-      return null;
-    } catch (fetchError) {
-      console.error(`Erreur lors de la récupération du prix pour ${geckoId}:`, fetchError);
-      
-      // Check if we have fallback data
-      if (FALLBACK_PRICES[geckoId]) {
-        return FALLBACK_PRICES[geckoId];
-      }
-      
-      // Try the cache even if expired
-      if (cachedData) {
-        return cachedData.data;
-      }
-      
-      return null;
-    } finally {
-      clearTimeout(timeoutId);
     }
+    
+    // Si toutes les tentatives échouent, vérifier dans les fallbacks
+    if (FALLBACK_PRICES[geckoId]) {
+      console.log(`Using fallback price after error for ${geckoId}`);
+      return FALLBACK_PRICES[geckoId];
+    }
+    
+    // Try the cache even if expired
+    if (cachedData) {
+      console.log(`Using expired cache for ${geckoId}`);
+      return cachedData.data;
+    }
+    
+    // Si pas de fallback ni de cache, créer un fallback générique
+    return createFallbackCryptoPrice(geckoId);
   } catch (error) {
-    console.error(`Erreur lors de la récupération du prix pour ${geckoId}:`, error);
+    console.error(`Erreur globale lors de la récupération du prix pour ${geckoId}:`, error);
     
     // Check fallback data first
     if (FALLBACK_PRICES[geckoId]) {
+      console.log(`Using fallback price after global error for ${geckoId}`);
       return FALLBACK_PRICES[geckoId];
     }
     
     // Vérifier si nous avons des données en cache même si expirées
     const cachedData = individualCache[geckoId];
     if (cachedData) {
+      console.log(`Using expired cache after global error for ${geckoId}`);
       return cachedData.data;
     }
     
-    return null;
+    // Si tout échoue, créer un fallback générique
+    return createFallbackCryptoPrice(geckoId);
   }
+};
+
+// Helper function to create consistent fallback data
+const createFallbackCryptoPrice = (id: string): CryptoPrice => {
+  // Générer un prix pseudo-aléatoire basé sur l'ID pour être cohérent
+  // Utilise la somme des codes ASCII des caractères pour une certaine stabilité
+  const hash = id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const basePrice = (hash % 1000) + 1; // Between 1 and 1000
+  
+  return {
+    id,
+    symbol: id.substring(0, 3),
+    name: id.charAt(0).toUpperCase() + id.slice(1).replace(/-/g, ' '),
+    current_price: basePrice,
+    price_change_percentage_24h: ((hash % 20) - 10) / 10, // Between -1.0 and 1.0
+    image: `https://placehold.co/32x32/3b82f6/FFFFFF?text=${id.substring(0, 3)}`
+  };
 };
 
 // Fonction pour obtenir le prix d'une crypto spécifique
 export const getCryptoPrice = async (id: string): Promise<CryptoPrice | null> => {
   try {
-    // D'abord, vérifier dans le cache global
+    // Try localStorage first
+    const localStorageKey = `crypto_price_${id}`;
+    const localData = getFromLocalStorage(localStorageKey);
+    if (localData) {
+      return localData;
+    }
+    
+    // Check global cache
     const prices = await fetchCryptoPrices();
     if (prices[id]) {
       return prices[id];
     }
     
-    // Si pas trouvé dans le cache global, essayer de récupérer individuellement
-    return await fetchSingleCryptoPrice(id);
+    // Check individual cache
+    const individualData = individualCache[id];
+    if (individualData && (Date.now() - individualData.timestamp < CACHE_DURATION)) {
+      return individualData.data;
+    }
+    
+    // Fetch individual price
+    const singlePrice = await fetchSingleCryptoPrice(id);
+    if (singlePrice) {
+      return singlePrice;
+    }
+    
+    // Si tout échoue, créer une réponse de secours
+    console.log(`Creating fallback data for ${id} as all other methods failed`);
+    return createFallbackCryptoPrice(id);
   } catch (error) {
     console.error(`Erreur lors de la récupération du prix pour ${id}:`, error);
     
     // Check fallback data first
     if (FALLBACK_PRICES[id]) {
+      console.log(`Using predefined fallback for ${id} after error in getCryptoPrice`);
       return FALLBACK_PRICES[id];
     }
     
     // Essayer de récupérer depuis le cache individuel
     const cachedData = individualCache[id];
     if (cachedData) {
+      console.log(`Using cached data for ${id} after error in getCryptoPrice`);
       return cachedData.data;
     }
     
     // Create a minimal fallback object
-    return {
-      id,
-      symbol: id.substring(0, 3),
-      name: id.charAt(0).toUpperCase() + id.slice(1),
-      current_price: 100,
-      price_change_percentage_24h: 0,
-      image: `https://placehold.co/32x32/3b82f6/FFFFFF?text=${id.substring(0, 3)}`
-    };
+    return createFallbackCryptoPrice(id);
   }
 };
 
