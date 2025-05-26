@@ -32,7 +32,9 @@ interface WalletContextType {
   transactions: Transaction[];
   isLoading: boolean;
   error: string | null;
+  isOfflineMode: boolean;
   refreshWallet: () => Promise<void>;
+  toggleOfflineMode: () => void;
   getCryptoHolding: (cryptoId: string | number) => Holding | undefined;
   buyCrypto: (
     cryptoId: string,
@@ -56,7 +58,9 @@ const WalletContext = createContext<WalletContextType>({
   transactions: [],
   isLoading: true,
   error: null,
+  isOfflineMode: false,
   refreshWallet: async () => {},
+  toggleOfflineMode: () => {},
   getCryptoHolding: () => undefined,
   buyCrypto: () => false,
   sellCrypto: () => false
@@ -77,6 +81,24 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [isOfflineMode, setIsOfflineMode] = useState<boolean>(false);
+  const [lastFetchAttempt, setLastFetchAttempt] = useState<number>(0);
+  const OFFLINE_FETCH_INTERVAL = 60000; // Une minute
+
+  // Charger les données du stockage local
+  useEffect(() => {
+    try {
+      const cachedBalance = localStorage.getItem('wallet_balance');
+      const cachedHoldings = localStorage.getItem('wallet_holdings');
+      const cachedTransactions = localStorage.getItem('wallet_transactions');
+      
+      if (cachedBalance) setBalance(JSON.parse(cachedBalance));
+      if (cachedHoldings) setHoldings(JSON.parse(cachedHoldings));
+      if (cachedTransactions) setTransactions(JSON.parse(cachedTransactions));
+    } catch (err) {
+      console.warn('Erreur lors du chargement des données en cache:', err);
+    }
+  }, []);
 
   const fetchWalletData = async () => {
     if (status !== 'authenticated' || !session) {
@@ -84,24 +106,65 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
+    // Éviter des tentatives de connexion trop rapprochées en mode hors ligne
+    const now = Date.now();
+    if (isOfflineMode && now - lastFetchAttempt < OFFLINE_FETCH_INTERVAL) {
+      return;
+    }
+    
+    setLastFetchAttempt(now);
     setIsLoading(true);
     setError(null);
 
+    const MAX_RETRIES = 3;
+    let retryCount = 0;
+
+    const fetchWithRetry = async (url, errorMessage) => {
+      while (retryCount < MAX_RETRIES) {
+        try {
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`${errorMessage} (${response.status}: ${response.statusText})`);
+          }
+          return await response.json();
+        } catch (err) {
+          retryCount++;
+          console.warn(`Tentative ${retryCount}/${MAX_RETRIES} échouée pour ${url}:`, err);
+          
+          if (retryCount >= MAX_RETRIES) {
+            throw err;
+          }
+          
+          // Attendre avant de réessayer avec un temps croissant
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+        }
+      }
+    };
+
     try {
       // Récupérer le solde
-      const balanceResponse = await fetch('/api/wallet/balance');
-      if (!balanceResponse.ok) {
-        throw new Error('Erreur lors de la récupération du solde');
+      const balanceData = await fetchWithRetry(
+        '/api/wallet/balance',
+        'Erreur lors de la récupération du solde'
+      );
+
+      if (isOfflineMode) {
+        // Si on était en mode hors ligne et qu'on retrouve la connexion
+        setIsOfflineMode(false);
+        toast({
+          title: "Connexion rétablie",
+          description: "Vos données ont été synchronisées avec le serveur.",
+          variant: "default",
+        });
       }
-      const balanceData = await balanceResponse.json();
-      setBalance(balanceData.balance || 0);
+      
+      setBalance(balanceData.balance || 100000);
 
       // Récupérer les investissements
-      const holdingsResponse = await fetch('/api/wallet/holdings');
-      if (!holdingsResponse.ok) {
-        throw new Error('Erreur lors de la récupération des investissements');
-      }
-      const holdingsData = await holdingsResponse.json();
+      const holdingsData = await fetchWithRetry(
+        '/api/wallet/holdings',
+        'Erreur lors de la récupération des investissements'
+      );
       
       // Transformer les données pour correspondre à notre format
       const formattedHoldings = holdingsData.map((h: any) => ({
@@ -117,11 +180,10 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       setHoldings(formattedHoldings);
 
       // Récupérer les transactions
-      const transactionsResponse = await fetch('/api/wallet/transactions');
-      if (!transactionsResponse.ok) {
-        throw new Error('Erreur lors de la récupération des transactions');
-      }
-      const transactionsData = await transactionsResponse.json();
+      const transactionsData = await fetchWithRetry(
+        '/api/wallet/transactions',
+        'Erreur lors de la récupération des transactions'
+      );
       
       // Transformer les transactions pour correspondre à notre format
       const formattedTransactions = transactionsData.map((t: any) => ({
@@ -136,14 +198,52 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       }));
       
       setTransactions(formattedTransactions);
+      
+      // Mettre en cache les données récupérées
+      try {
+        localStorage.setItem('wallet_balance', JSON.stringify(balanceData.balance));
+        localStorage.setItem('wallet_holdings', JSON.stringify(formattedHoldings));
+        localStorage.setItem('wallet_transactions', JSON.stringify(formattedTransactions));
+      } catch (err) {
+        console.warn('Erreur lors de la sauvegarde du cache local:', err);
+      }
     } catch (err) {
       console.error('Erreur lors de la récupération des données du portefeuille:', err);
       setError('Erreur lors de la récupération des données du portefeuille');
       
-      // En cas d'erreur, définir des valeurs par défaut
-      setBalance(100000);
-      setHoldings([]);
-      setTransactions([]);
+      // Activer le mode hors ligne
+      if (!isOfflineMode) {
+        setIsOfflineMode(true);
+        toast({
+          title: "Mode hors ligne activé",
+          description: "Impossible de se connecter au serveur. Les fonctionnalités sont limitées.",
+          variant: "destructive",
+        });
+      }
+      
+      // Essayer de récupérer les données du local storage en cas d'erreur
+      try {
+        const cachedBalance = localStorage.getItem('wallet_balance');
+        const cachedHoldings = localStorage.getItem('wallet_holdings');
+        const cachedTransactions = localStorage.getItem('wallet_transactions');
+        
+        if (cachedBalance) setBalance(JSON.parse(cachedBalance));
+        else setBalance(100000);
+        
+        if (cachedHoldings) setHoldings(JSON.parse(cachedHoldings));
+        else setHoldings([]);
+        
+        if (cachedTransactions) setTransactions(JSON.parse(cachedTransactions));
+        else setTransactions([]);
+        
+        console.log('Utilisation des données en cache du portefeuille');
+      } catch (cacheErr) {
+        console.error('Erreur lors de la récupération du cache:', cacheErr);
+        // En cas d'erreur, définir des valeurs par défaut
+        setBalance(100000);
+        setHoldings([]);
+        setTransactions([]);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -152,10 +252,56 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (status === 'loading') return;
     fetchWalletData();
-  }, [status, session]);
+    
+    // Configurer un interval pour les tentatives de reconnexion en mode hors ligne
+    const reconnectInterval = setInterval(() => {
+      if (isOfflineMode) {
+        console.log('Tentative de reconnexion...');
+        fetchWalletData();
+      }
+    }, OFFLINE_FETCH_INTERVAL);
+    
+    return () => clearInterval(reconnectInterval);
+  }, [status, session, isOfflineMode]);
+
+  // Fonction pour vérifier une connexion réseau active
+  const checkNetworkConnection = () => {
+    return typeof navigator !== 'undefined' && navigator.onLine;
+  };
 
   const refreshWallet = async () => {
+    // Vérifier la connexion réseau avant d'essayer de rafraîchir
+    if (!checkNetworkConnection()) {
+      toast({
+        title: "Pas de connexion internet",
+        description: "Vérifiez votre connexion internet et réessayez.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     await fetchWalletData();
+  };
+
+  // Fonction pour basculer manuellement le mode hors ligne
+  const toggleOfflineMode = () => {
+    const newMode = !isOfflineMode;
+    setIsOfflineMode(newMode);
+    
+    if (newMode) {
+      toast({
+        title: "Mode hors ligne activé",
+        description: "Toutes les transactions seront enregistrées localement.",
+        variant: "default",
+      });
+    } else {
+      toast({
+        title: "Tentative de reconnexion...",
+        description: "Tentative de synchronisation avec le serveur.",
+        variant: "default",
+      });
+      fetchWalletData();
+    }
   };
 
   // Fonction pour trouver un crypto holding par ID
@@ -174,10 +320,8 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   ): boolean => {
     // Vérifier si l'utilisateur a assez d'argent
     const cost = amount * price;
-    // Fix for 100% purchase - use a small epsilon value to account for floating point precision
-    const EPSILON = 0.00001; // Marge d'erreur pour les calculs à virgule flottante
     
-    if (cost > balance + EPSILON) {
+    if (cost > balance) {
       toast({
         title: "Fonds insuffisants",
         description: "Vous n'avez pas assez de fonds pour cet achat.",
@@ -186,10 +330,9 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       return false;
     }
 
-    // Si l'achat est presque égal au solde complet (à l'EPSILON près), utiliser tout le solde
-    const actualCost = Math.abs(cost - balance) < EPSILON ? balance : cost;
-    // Calculate using the fixed cost to avoid rounding issues
-    const actualAmount = parseFloat((actualCost / price).toFixed(8));
+    // Ne pas modifier le coût, utiliser directement la valeur calculée
+    const actualCost = parseFloat(cost.toFixed(2));
+    const actualAmount = parseFloat(amount.toFixed(8));
     
     // Simuler l'achat côté client pour une expérience fluide
     // Mettre à jour le solde avec the proper precision
@@ -197,8 +340,9 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     
     // Ajouter ou mettre à jour le holding
     const existingHoldingIndex = holdings.findIndex(h => h.cryptoId === cryptoId);
+    let updatedHoldings = [...holdings];
+    
     if (existingHoldingIndex >= 0) {
-      const updatedHoldings = [...holdings];
       const existingHolding = updatedHoldings[existingHoldingIndex];
       const newAmount = parseFloat((existingHolding.amount + actualAmount).toFixed(8));
       const newTotalInvested = parseFloat((existingHolding.totalInvested + actualCost).toFixed(2));
@@ -224,7 +368,8 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         totalInvested: parseFloat(actualCost.toFixed(2))
       };
       
-      setHoldings(prevHoldings => [...prevHoldings, newHolding]);
+      updatedHoldings = [...holdings, newHolding];
+      setHoldings(updatedHoldings);
     }
     
     // Ajouter la transaction
@@ -239,7 +384,38 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       timestamp: Date.now()
     };
     
-    setTransactions(prevTransactions => [newTransaction, ...prevTransactions]);
+    const newTransactions = [newTransaction, ...transactions];
+    setTransactions(newTransactions);
+    
+    // Après chaque transaction réussie, mettre en cache les données localement
+    try {
+      localStorage.setItem('wallet_balance', JSON.stringify(balance - actualCost));
+      localStorage.setItem('wallet_holdings', JSON.stringify(updatedHoldings));
+      localStorage.setItem('wallet_transactions', JSON.stringify(newTransactions));
+    } catch (err) {
+      console.warn('Erreur lors de la sauvegarde du cache local:', err);
+    }
+    
+    // Si en mode hors ligne, ne pas envoyer au serveur
+    if (isOfflineMode) {
+      toast({
+        title: "Transaction en mode hors ligne",
+        description: "Votre achat a été enregistré localement et sera synchronisé quand la connexion sera rétablie.",
+        variant: "default",
+      });
+      return true;
+    }
+    
+    // Vérifier la connexion réseau
+    if (!checkNetworkConnection()) {
+      toast({
+        title: "Pas de connexion internet",
+        description: "La transaction a été enregistrée localement et sera synchronisée plus tard.",
+        variant: "destructive",
+      });
+      setIsOfflineMode(true);
+      return true;
+    }
     
     // Appeler l'API pour mettre à jour le portefeuille côté serveur
     // Cette partie est asynchrone, mais nous ne l'attendons pas pour une meilleure UX
@@ -342,7 +518,38 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       timestamp: Date.now()
     };
     
-    setTransactions(prevTransactions => [newTransaction, ...prevTransactions]);
+    const newTransactions = [newTransaction, ...transactions];
+    setTransactions(newTransactions);
+    
+    // Après chaque transaction réussie, mettre en cache les données localement
+    try {
+      localStorage.setItem('wallet_balance', JSON.stringify(balance + saleValue));
+      localStorage.setItem('wallet_holdings', JSON.stringify(updatedHoldings));
+      localStorage.setItem('wallet_transactions', JSON.stringify(newTransactions));
+    } catch (err) {
+      console.warn('Erreur lors de la sauvegarde du cache local:', err);
+    }
+    
+    // Si en mode hors ligne, ne pas envoyer au serveur
+    if (isOfflineMode) {
+      toast({
+        title: "Transaction en mode hors ligne",
+        description: "Votre vente a été enregistrée localement et sera synchronisée quand la connexion sera rétablie.",
+        variant: "default",
+      });
+      return true;
+    }
+    
+    // Vérifier la connexion réseau
+    if (!checkNetworkConnection()) {
+      toast({
+        title: "Pas de connexion internet",
+        description: "La transaction a été enregistrée localement et sera synchronisée plus tard.",
+        variant: "destructive",
+      });
+      setIsOfflineMode(true);
+      return true;
+    }
     
     // Appeler l'API pour mettre à jour le portefeuille côté serveur
     fetch('/api/wallet/transactions', {
@@ -386,7 +593,9 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       transactions, 
       isLoading, 
       error,
+      isOfflineMode,
       refreshWallet,
+      toggleOfflineMode,
       getCryptoHolding,
       buyCrypto,
       sellCrypto

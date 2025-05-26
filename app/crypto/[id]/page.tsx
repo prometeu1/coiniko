@@ -153,151 +153,133 @@ export default function CryptoDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [chartTimeframe, setChartTimeframe] = useState<'day' | 'week' | 'month' | 'year'>('week');
   const [chartData, setChartData] = useState<ChartPoint[]>([]);
-  const { balance, buyCrypto, getCryptoHolding } = useWallet();
-  const [tradingViewLoaded, setTradingViewLoaded] = useState<boolean>(false);
+  const { balance, buyCrypto, getCryptoHolding, sellCrypto } = useWallet();
   
   // Get crypto ID from route params
   const cryptoId = params?.id as string;
   
-  // Initialize TradingView widget when the data is loaded
-  useEffect(() => {
-    if (cryptoData && typeof window !== 'undefined' && window.TradingView) {
-      try {
-        // Clear previous widget if it exists
-        const container = document.getElementById('tradingview_chart');
-        if (container) container.innerHTML = '';
-        
-        const widget = new window.TradingView.widget({
-          autosize: false,
-          symbol: `COINBASE:${cryptoData.symbol.toUpperCase()}USD`,
-          interval: "D",
-          timezone: "Etc/UTC",
-          theme: document.documentElement.classList.contains('dark') ? "dark" : "light",
-          style: "1",
-          locale: "fr",
-          toolbar_bg: "#00000000", // Transparent toolbar
-          enable_publishing: false,
-          hide_top_toolbar: false,
-          hide_legend: false,
-          allow_symbol_change: true,
-          container_id: "tradingview_chart",
-          height: 450,
-          width: container ? container.clientWidth : 800,
-          withdateranges: true,
-          save_image: false,
-        });
-        
-        // Add onChartReady handler to ensure chart is properly loaded
-        widget.onChartReady(() => {
-          console.log('TradingView chart loaded successfully');
-          setTradingViewLoaded(true);
-        });
-      } catch (error) {
-        console.error('Error initializing TradingView widget:', error);
-        setTradingViewLoaded(false);
-      }
-    }
-  }, [cryptoData]);
-  
   // Fetch the detailed crypto data
   useEffect(() => {
     const fetchCryptoDetail = async () => {
-      if (!cryptoId) return;
-      
       setIsLoading(true);
       setError(null);
       
       try {
-        // Try to get from local storage first to reduce API calls
-        const cachedData = localStorage.getItem(`crypto_detail_${cryptoId}`);
-        const cacheTimestamp = localStorage.getItem(`crypto_detail_${cryptoId}_timestamp`);
+        // Check cache first
+        const cacheKey = `crypto_detail_${cryptoId}`;
+        const cachedData = localStorage.getItem(cacheKey);
+        const cacheTimestamp = localStorage.getItem(`${cacheKey}_timestamp`);
         
-        // Use cache if available and less than 15 minutes old
         if (cachedData && cacheTimestamp) {
-          const cachedTime = parseInt(cacheTimestamp);
-          if (Date.now() - cachedTime < 15 * 60 * 1000) { // 15 minutes
+          const age = Date.now() - parseInt(cacheTimestamp);
+          // Use cache if less than 15 minutes old
+          if (age < 15 * 60 * 1000) {
             console.log(`Using cached data for ${cryptoId}`);
             const parsedData = JSON.parse(cachedData);
             setCryptoData(parsedData);
             
-            // Set initial chart data
             if (parsedData.chart_data?.week?.prices) {
               processChartData('week', parsedData.chart_data.week);
             }
-            
             setIsLoading(false);
             return;
           }
         }
-        
-        // API fetch with retry logic
+
         let attempts = 0;
         const maxAttempts = 3;
-        
+
         while (attempts < maxAttempts) {
           try {
-            const response = await fetch(`/api/crypto/${cryptoId}`);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
+            const response = await fetch(`/api/crypto/${cryptoId}`, {
+              signal: controller.signal,
+              headers: {
+                'Accept': 'application/json',
+              },
+            });
             
+            clearTimeout(timeoutId);
+
             if (response.status === 429) {
-              // Rate limited, wait longer before retry
               attempts++;
-              console.log(`Rate limited (429), attempt ${attempts} of ${maxAttempts}`);
-              
               if (attempts < maxAttempts) {
                 // Exponential backoff: wait longer with each attempt
-                await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempts)));
+                await new Promise(r => setTimeout(r, 2000 * Math.pow(2, attempts)));
                 continue;
               } else {
                 throw new Error(`Rate limited (429). Too many requests to the API.`);
               }
             }
             
+            if (response.status === 404) {
+              // Try to create fallback data for this crypto
+              const fallbackData = createFallbackCryptoData(cryptoId);
+              if (fallbackData) {
+                console.log(`Using fallback data for missing crypto: ${cryptoId}`);
+                setCryptoData(fallbackData);
+                setError("Using simplified data. Full data is not available for this cryptocurrency.");
+                return;
+              } else {
+                throw new Error(`Cryptocurrency '${cryptoId}' not found. Please check the URL.`);
+              }
+            }
+            
             if (!response.ok) {
-              throw new Error(`Failed to fetch crypto data: ${response.status}`);
+              throw new Error(`Failed to fetch crypto data: ${response.status} - ${response.statusText}`);
             }
             
             const data = await response.json();
+            
+            // Validate the data structure
+            if (!data || !data.id || !data.name) {
+              throw new Error('Invalid data structure received from API');
+            }
+            
             setCryptoData(data);
-            
+
             // Cache the data
-            localStorage.setItem(`crypto_detail_${cryptoId}`, JSON.stringify(data));
-            localStorage.setItem(`crypto_detail_${cryptoId}_timestamp`, Date.now().toString());
-            
+            localStorage.setItem(cacheKey, JSON.stringify(data));
+            localStorage.setItem(`${cacheKey}_timestamp`, Date.now().toString());
+
             // Set initial chart data
             if (data.chart_data?.week?.prices) {
               processChartData('week', data.chart_data.week);
             }
-            
+
             // Successfully got data, break the retry loop
             break;
           } catch (retryError) {
             attempts++;
             console.error(`Attempt ${attempts} failed:`, retryError);
-            
+
             if (attempts >= maxAttempts) {
               throw retryError;
             }
-            
+
             // Wait longer with each retry (exponential backoff)
-            await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempts)));
+            await new Promise(r => setTimeout(r, 2000 * Math.pow(2, attempts)));
           }
         }
       } catch (err) {
         console.error("Error fetching crypto detail:", err);
-        
+
         // Check if we have cached data we can use even if it's old
-        const cachedData = localStorage.getItem(`crypto_detail_${cryptoId}`);
+        const cacheKey = `crypto_detail_${cryptoId}`;
+        const cachedData = localStorage.getItem(cacheKey);
         if (cachedData) {
           console.log(`Using expired cached data for ${cryptoId} after error`);
           const parsedData = JSON.parse(cachedData);
           setCryptoData(parsedData);
-          
+
           // Set chart data
           if (parsedData.chart_data?.week?.prices) {
             processChartData('week', parsedData.chart_data.week);
           }
-          
-          setError("Using cached data. Couldn't refresh from API: " + err.message);
+
+          setError("Using cached data. Couldn't refresh from API: " + (err instanceof Error ? err.message : 'Unknown error'));
         } else {
           // If no cached data, use fallback for common cryptos or show error
           const fallbackData = createFallbackCryptoData(cryptoId);
@@ -306,7 +288,7 @@ export default function CryptoDetailPage() {
             setCryptoData(fallbackData);
             setError("Using simplified data. API is currently unavailable.");
           } else {
-            setError("Failed to load cryptocurrency data. Please try again later.");
+            setError(`Failed to load data for '${cryptoId}'. Please verify the cryptocurrency name or try again later.`);
           }
         }
       } finally {
@@ -637,18 +619,6 @@ export default function CryptoDetailPage() {
         <div className="absolute top-40 left-60 w-72 h-72 bg-purple-500/5 rounded-full blur-3xl"></div>
       </div>
       
-      {/* Add TradingView script at the top level, outside of any conditional rendering */}
-      <Script 
-        src="https://s3.tradingview.com/tv.js" 
-        strategy="beforeInteractive"
-        onLoad={() => {
-          console.log("TradingView script loaded successfully");
-        }}
-        onError={(e) => {
-          console.error("TradingView script failed to load:", e);
-        }}
-      />
-      
       {/* Header with navigation */}
       <div className="mb-8">
         <Button 
@@ -794,71 +764,53 @@ export default function CryptoDetailPage() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            {/* TradingView Advanced Chart with clean styling */}
-            <div 
-              id="tradingview_chart" 
-              className="w-full relative mt-8" 
-              style={{ 
-                height: '450px', 
-                width: '100%', 
-                margin: '0 auto',
-                display: 'block',
-                backgroundColor: 'transparent',
-                paddingTop: '30px',
-                position: 'relative',
-                zIndex: 10
-              }}
-            ></div>
-
-            {/* Fallback chart only shown if TradingView is not available */}
-            {!tradingViewLoaded && chartData.length > 0 && (
-              <div className="h-[450px] w-full absolute top-0 left-0 pt-8" id="fallback-chart">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart
-                    data={chartData}
-                    margin={{ top: 20, right: 20, left: 20, bottom: 20 }}
-                  >
-                    <defs>
-                      <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8} />
-                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <XAxis
-                      dataKey="date"
-                      tick={{ fontSize: 12 }}
-                      tickFormatter={(value) => value}
-                      stroke="hsl(var(--muted-foreground))"
-                    />
-                    <YAxis
-                      tickFormatter={(value) => `$${Math.round(value).toLocaleString()}`}
-                      domain={['auto', 'auto']}
-                      stroke="hsl(var(--muted-foreground))"
-                    />
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground)/0.1)" />
-                    <Tooltip
-                      formatter={(value: number) => [formatCurrency(value), 'Prix']}
-                      labelFormatter={(label) => `Date: ${label}`}
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        borderColor: 'hsl(var(--border))',
-                        borderRadius: '0.5rem',
-                      }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="value"
-                      stroke="hsl(var(--primary))"
-                      strokeWidth={2}
-                      fillOpacity={1}
-                      fill="url(#colorValue)"
-                      animationDuration={1500}
-                      animationEasing="ease-out"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            )}
+            {/* Fallback chart with better styling */}
+            <div className="h-[500px] w-full" style={{ margin: '0', padding: '0' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={chartData}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                >
+                  <defs>
+                    <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 12 }}
+                    tickFormatter={(value) => value}
+                    stroke="hsl(var(--muted-foreground))"
+                  />
+                  <YAxis
+                    tickFormatter={(value) => `$${Math.round(value).toLocaleString()}`}
+                    domain={['auto', 'auto']}
+                    stroke="hsl(var(--muted-foreground))"
+                  />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground)/0.1)" />
+                  <Tooltip
+                    formatter={(value: number) => [formatCurrency(value), 'Prix']}
+                    labelFormatter={(label) => `Date: ${label}`}
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
+                      borderColor: 'hsl(var(--border))',
+                      borderRadius: '0.5rem',
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#colorValue)"
+                    animationDuration={1500}
+                    animationEasing="ease-out"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
         
@@ -1156,11 +1108,37 @@ export default function CryptoDetailPage() {
                 Ajoutez {cryptoData.symbol} à votre portefeuille et diversifiez vos investissements en cryptomonnaies.
               </p>
               
+              <div className="space-y-3 mb-4">
+                <div className="flex justify-between text-sm">
+                  <span>Prix actuel:</span>
+                  <span className="font-medium">{formatCurrency(cryptoData.market_data?.current_price?.usd || 0)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Votre solde:</span>
+                  <span className="font-medium">{formatCurrency(balance)}</span>
+                </div>
+              </div>
+              
               <Button 
                 className="w-full bg-gradient-to-r from-green-500 to-primary group-hover:opacity-90 transition-opacity"
                 onClick={() => {
-                  // Logique pour acheter qui sera implémentée plus tard
-                  alert(`Achat de ${cryptoData.symbol} bientôt disponible!`);
+                  const amount = prompt(`Combien de ${cryptoData.symbol} voulez-vous acheter?`);
+                  if (amount && !isNaN(Number(amount))) {
+                    const numAmount = Number(amount);
+                    const cost = numAmount * (cryptoData.market_data?.current_price?.usd || 0);
+                    
+                    if (cost > balance) {
+                      alert(`Solde insuffisant. Vous avez besoin de ${formatCurrency(cost)} mais votre solde est de ${formatCurrency(balance)}.`);
+                      return;
+                    }
+                    
+                    const success = buyCrypto(cryptoId, numAmount, cryptoData.market_data?.current_price?.usd || 0);
+                    if (success) {
+                      alert(`Achat réussi! Vous avez acheté ${numAmount} ${cryptoData.symbol} pour ${formatCurrency(cost)}.`);
+                    } else {
+                      alert('Erreur lors de l\'achat. Veuillez réessayer.');
+                    }
+                  }
                 }}
               >
                 <ArrowUp className="h-4 w-4 mr-2" />
@@ -1176,30 +1154,72 @@ export default function CryptoDetailPage() {
                 Vendre {cryptoData.symbol}
               </h3>
               
-              <p className="text-muted-foreground mb-4">
-                {getCryptoHolding(cryptoId) 
-                  ? `Vous possédez ${getCryptoHolding(cryptoId)?.amount.toFixed(6)} ${cryptoData.symbol} dans votre portefeuille.`
-                  : `Vous ne possédez pas de ${cryptoData.symbol} dans votre portefeuille actuellement.`
-                }
-              </p>
-              
-              <Button 
-                variant="outline" 
-                className="w-full border-red-500/30 text-red-500 hover:bg-red-500/10 group-hover:border-red-500/50 transition-all"
-                disabled={!getCryptoHolding(cryptoId) || getCryptoHolding(cryptoId)?.amount <= 0}
-                onClick={() => {
-                  // Logique pour vendre qui sera implémentée plus tard
-                  const holding = getCryptoHolding(cryptoId);
-                  if (!holding || holding.amount <= 0) {
-                    alert(`Vous ne possédez pas de ${cryptoData.symbol} dans votre portefeuille.`);
-                  } else {
-                    alert(`Vente de ${cryptoData.symbol} bientôt disponible!`);
-                  }
-                }}
-              >
-                <ArrowDown className="h-4 w-4 mr-2" />
-                Vendre {cryptoData.symbol}
-              </Button>
+              {(() => {
+                const holding = getCryptoHolding(cryptoId);
+                const hasHolding = holding && holding.amount > 0;
+                
+                return (
+                  <>
+                    <p className="text-muted-foreground mb-4">
+                      {hasHolding 
+                        ? `Vous possédez ${holding.amount.toFixed(6)} ${cryptoData.symbol} dans votre portefeuille.`
+                        : `Vous ne possédez pas de ${cryptoData.symbol} dans votre portefeuille actuellement.`
+                      }
+                    </p>
+                    
+                    {hasHolding && (
+                      <div className="space-y-3 mb-4">
+                        <div className="flex justify-between text-sm">
+                          <span>Quantité possédée:</span>
+                          <span className="font-medium">{holding.amount.toFixed(6)} {cryptoData.symbol}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span>Valeur actuelle:</span>
+                          <span className="font-medium">{formatCurrency(holding.amount * (cryptoData.market_data?.current_price?.usd || 0))}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span>Prix d'achat moyen:</span>
+                          <span className="font-medium">{formatCurrency(holding.average_buy_price)}</span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <Button 
+                      variant="outline" 
+                      className="w-full border-red-500/30 text-red-500 hover:bg-red-500/10 group-hover:border-red-500/50 transition-all"
+                      disabled={!hasHolding}
+                      onClick={() => {
+                        if (!hasHolding) {
+                          alert(`Vous ne possédez pas de ${cryptoData.symbol} dans votre portefeuille.`);
+                          return;
+                        }
+                        
+                        const amount = prompt(`Combien de ${cryptoData.symbol} voulez-vous vendre? (Maximum: ${holding.amount.toFixed(6)})`);
+                        if (amount && !isNaN(Number(amount))) {
+                          const numAmount = Number(amount);
+                          
+                          if (numAmount > holding.amount) {
+                            alert(`Quantité insuffisante. Vous possédez seulement ${holding.amount.toFixed(6)} ${cryptoData.symbol}.`);
+                            return;
+                          }
+                          
+                          const revenue = numAmount * (cryptoData.market_data?.current_price?.usd || 0);
+                          const success = sellCrypto(cryptoId, numAmount, cryptoData.market_data?.current_price?.usd || 0);
+                          
+                          if (success) {
+                            alert(`Vente réussie! Vous avez vendu ${numAmount} ${cryptoData.symbol} pour ${formatCurrency(revenue)}.`);
+                          } else {
+                            alert('Erreur lors de la vente. Veuillez réessayer.');
+                          }
+                        }
+                      }}
+                    >
+                      <ArrowDown className="h-4 w-4 mr-2" />
+                      {hasHolding ? `Vendre ${cryptoData.symbol}` : 'Aucun actif à vendre'}
+                    </Button>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </CardContent>

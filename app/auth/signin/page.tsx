@@ -62,7 +62,25 @@ function SignInContent() {
     const errorParam = searchParams.get('error');
     if (errorParam) {
       console.error('Auth error from URL:', errorParam);
-      setError(`Erreur d'authentification: ${errorParam}`);
+      
+      // Customize error message based on error type
+      if (errorParam === 'Callback') {
+        setError(`Erreur d'authentification: Problème de connexion à la base de données. Veuillez réessayer.`);
+      } else if (errorParam === 'OAuthCallback') {
+        setError(`Erreur d'authentification: Problème de session. Veuillez réessayer.`);
+      } else if (errorParam === 'OAuthSignin') {
+        setError(`Erreur d'authentification: Problème lors de l'initialisation de la connexion. Veuillez réessayer.`);
+      } else if (errorParam === 'OAuthAccountNotLinked') {
+        setError(`Ce compte est déjà associé à une autre méthode de connexion. Veuillez utiliser votre méthode de connexion initiale.`);
+      } else if (errorParam === 'Configuration') {
+        setError(`Problème de configuration du serveur. Veuillez contacter l'administrateur.`);
+      } else if (errorParam === 'AccessDenied') {
+        setError(`Accès refusé. Vous n'avez pas l'autorisation de vous connecter.`);
+      } else if (errorParam === 'Verification') {
+        setError(`Problème de vérification. Veuillez réessayer.`);
+      } else {
+        setError(`Erreur d'authentification: ${errorParam}`);
+      }
     }
   }, [searchParams]);
 
@@ -81,30 +99,26 @@ function SignInContent() {
       
       console.log("Tentative de connexion avec Google...");
       
-      // Définir un timeout pour s'assurer que signIn ne reste pas bloqué
-      const timeoutPromise = new Promise<{error?: string; url?: string}>((_, reject) =>
-        setTimeout(() => reject(new Error("Timeout dépassé")), 20000)
-      );
-      
-      const authPromise = signIn("google", {
-        redirect: false, // Ne pas rediriger automatiquement
-        callbackUrl: "/"
+      // Clear any existing cookies before sign-in attempt
+      document.cookie.split(';').forEach(cookie => {
+        const [name] = cookie.split('=');
+        if (name.trim().startsWith('next-auth')) {
+          document.cookie = `${name.trim()}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+        }
       });
       
-      // Utilisez Promise.race pour gérer le timeout
-      const result = await Promise.race([authPromise, timeoutPromise]) as {error?: string; url?: string} | undefined;
+      // Use simple direct approach - let NextAuth handle everything
+      await signIn("google", {
+        callbackUrl: "/",  // Always redirect to home page
+        redirect: true
+      });
       
-      if (result?.error) {
-        console.error("Erreur retournée par signIn:", result.error);
-        setError(`Erreur de connexion: ${result.error}`);
-      } else if (result?.url) {
-        console.log("Redirection vers:", result.url);
-        router.push(result.url);
-      }
+      // This code won't execute due to the redirect
+      setIsLoading(false);
+      
     } catch (error) {
       console.error("Exception lors de la connexion avec Google:", error);
       setError("Erreur de connexion. Veuillez réessayer.");
-    } finally {
       setIsLoading(false);
     }
   };

@@ -1,138 +1,316 @@
 import { PrismaClient } from '@prisma/client';
+import { Pool, PoolClient } from 'pg';
 
-// Déclaration pour le global scope
-declare global {
-  var prisma: PrismaClient | undefined;
-  var prismaConnected: boolean;
-}
+// Create a singleton PrismaClient instance
+let prismaInstance: PrismaClient | null = null;
 
-// Log pour déboguer
-console.log('=== Initializing Prisma client ===');
-console.log('DATABASE_URL is set:', !!process.env.DATABASE_URL);
-console.log('DIRECT_URL is set:', !!process.env.DIRECT_URL);
+// Create a PostgreSQL pool for direct queries
+let pgPool: Pool | null = null;
 
-if (process.env.DATABASE_URL) {
-  console.log('DATABASE_URL starts with:', process.env.DATABASE_URL.substring(0, 20) + '...');
-}
-if (process.env.DIRECT_URL) {
-  console.log('DIRECT_URL starts with:', process.env.DIRECT_URL.substring(0, 20) + '...');
-}
+// Track connection state
+let isConnected = false;
+let connectionAttempts = 0;
+const MAX_CONNECTION_ATTEMPTS = 3;
 
-// Fonction pour créer un nouveau client Prisma avec options optimisées
-function createPrismaClient() {
-  return new PrismaClient({
-    log: ['error', 'warn'],
-    errorFormat: 'pretty',
-  });
-}
+// Unique identifier for this server instance to prevent prepared statement name collisions
+const INSTANCE_ID = Math.random().toString(36).substring(2, 10);
+let statementCounter = 0;
 
-// Solution pour éviter la duplication de connexions avec options pour résoudre l'erreur "prepared statement already exists"
-// Utilise une seule instance par processus
-let prismaInstance: PrismaClient;
+// Get a unique name for prepared statements to avoid conflicts
+const getUniqueStatementName = () => {
+  return `stmt_${INSTANCE_ID}_${statementCounter++}`;
+};
 
-if (process.env.NODE_ENV === 'production') {
-  // En production, toujours créer une nouvelle instance
-  prismaInstance = createPrismaClient();
-} else {
-  // En développement, garder l'instance dans le global scope
-  if (!global.prisma) {
-    global.prisma = createPrismaClient();
-    global.prismaConnected = false;
-  }
-  prismaInstance = global.prisma;
-}
-
-export const prisma = prismaInstance;
-
-// Ajouter cette fonction pour nettoyer les connexions et éviter les erreurs de "prepared statement"
-export async function disconnectPrisma() {
-  try {
-    if (global.prismaConnected) {
-      await prisma.$disconnect();
-      global.prismaConnected = false;
-      console.log('Prisma client disconnected');
+// Get or create the PostgreSQL pool
+const getPgPool = (): Pool => {
+  if (!pgPool) {
+    const url = process.env.DATABASE_URL;
+    if (!url) {
+      throw new Error('DATABASE_URL is not defined');
     }
-  } catch (error) {
-    console.error('Error disconnecting Prisma client:', error);
-  }
-}
-
-// Fonction pour connecter Prisma de manière sécurisée avec retry
-export async function connectPrisma(retries = 3, delay = 500) {
-  try {
-    if (!global.prismaConnected) {
-      for (let attempt = 0; attempt < retries; attempt++) {
-        try {
-          await prisma.$connect();
-          global.prismaConnected = true;
-          console.log('Prisma client connected successfully');
-          return;
-        } catch (error) {
-          if (attempt < retries - 1) {
-            console.warn(`Connection attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
-            await new Promise((resolve) => setTimeout(resolve, delay));
-            // Double le délai pour chaque tentative (exponential backoff)
-            delay *= 2;
-          } else {
-            throw error;
-          }
-        }
-      }
-    }
-  } catch (error) {
-    console.error('Failed to connect Prisma client after multiple attempts:', error);
-    // Réinitialiser l'état de connexion en cas d'échec
-    global.prismaConnected = false;
-    throw error;
-  }
-}
-
-// Fonction utilitaire pour exécuter des opérations de base de données avec gestion d'erreurs et retry
-export async function handleDatabaseOperation<T>(operation: () => Promise<T>, retries = 2): Promise<T> {
-  try {
-    // Déconnecter d'abord pour éviter les erreurs de connexions multiples
-    await disconnectPrisma();
-    // Puis reconnecter avec retry
-    await connectPrisma(3, 500);
     
-    // Exécuter l'opération
-    let lastError: any;
-    for (let attempt = 0; attempt < retries; attempt++) {
-      try {
-        return await operation();
-      } catch (error: any) {
-        // Si c'est une erreur de prepared statement, on déconnecte et réessaie
-        if (error?.message?.includes('prepared statement')) {
-          console.warn(`Prepared statement error, retry ${attempt + 1}/${retries}`);
-          await disconnectPrisma();
-          await connectPrisma(2, 300);
-          lastError = error;
-        } else {
-          // Pour les autres types d'erreurs, on propage
-          throw error;
+    pgPool = new Pool({
+      connectionString: url,
+      max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000,
+      // Add statement timeout to prevent hanging queries
+      statement_timeout: 30000,
+      // Use SSL in production
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    });
+    
+    console.log('PostgreSQL pool created');
+    
+    // Add error handler
+    pgPool.on('error', (err) => {
+      console.error('Unexpected error on idle PostgreSQL client', err);
+      // Reset the pool on critical errors
+      pgPool = null;
+    });
+  }
+  
+  return pgPool;
+};
+
+// Get or create the PrismaClient instance
+export const prisma = (): PrismaClient => {
+  if (!prismaInstance) {
+    prismaInstance = new PrismaClient({
+      log: [
+        {
+          emit: 'event',
+          level: 'error',
+        },
+      ],
+      // Important: Disable connection pooling in Prisma since we're managing it ourselves
+      datasources: {
+        db: {
+          url: process.env.DATABASE_URL
         }
       }
-    }
-    // Si on arrive ici c'est qu'on a épuisé les tentatives
-    throw lastError || new Error('Database operation failed after retries');
+    });
+
+    // Log Prisma errors
+    prismaInstance.$on('error', (e) => {
+      console.error('Prisma Client error:', e);
+    });
+  }
+  
+  return prismaInstance;
+};
+
+// Execute a raw query with a unique prepared statement name
+export async function executeRawQuery(sql: string, params: any[] = []): Promise<any> {
+  const pool = getPgPool();
+  const client = await pool.connect();
+  
+  try {
+    // Execute directly without prepared statements to avoid conflicts
+    const result = await client.query(sql, params);
+    return result.rows;
   } catch (error) {
-    console.error('Database operation error:', error);
-    // Déconnecter en cas d'erreur pour nettoyer
-    await disconnectPrisma();
+    console.error('Error executing raw query:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+// Clean up all prepared statements for this connection
+export async function cleanupPreparedStatements(): Promise<void> {
+  const pool = getPgPool();
+  const client = await pool.connect();
+  
+  try {
+    // First try to deallocate all statements at once (safer approach)
+    try {
+      await client.query('DEALLOCATE ALL');
+      console.log('✅ All prepared statements have been deallocated');
+      return;
+    } catch (e) {
+      console.warn('Failed to deallocate all statements:', e);
+    }
+
+    // If that fails, try to get a list of statements and deallocate them individually
+    try {
+      const result = await client.query('SELECT name FROM pg_prepared_statements');
+      
+      // Deallocate each statement individually
+      for (const row of result.rows) {
+        try {
+          await client.query(`DEALLOCATE "${row.name}"`);
+        } catch (e) {
+          console.warn(`Failed to deallocate statement ${row.name}:`, e);
+        }
+      }
+      
+      console.log(`Cleaned up ${result.rows.length} prepared statements`);
+    } catch (e) {
+      console.error('Failed to clean up prepared statements:', e);
+    }
+  } catch (error) {
+    console.error('Failed to clean up prepared statements:', error);
+  } finally {
+    client.release();
+  }
+}
+
+// Reset the Prisma client and PostgreSQL pool
+export async function resetPrisma(): Promise<void> {
+  console.log('Resetting database connections...');
+  
+  try {
+    // Disconnect Prisma
+    if (prismaInstance) {
+      await prismaInstance.$disconnect();
+      prismaInstance = null;
+    }
+    
+    // Clean up prepared statements
+    await cleanupPreparedStatements();
+    
+    // Close and recreate the pool
+    if (pgPool) {
+      try {
+        await pgPool.end();
+      } catch (err: any) {
+        // Ignore "Called end on pool more than once" errors
+        if (!err.message?.includes('Called end on pool more than once')) {
+          console.error('Error ending pool:', err);
+        }
+      }
+      pgPool = null;
+    }
+    
+    // Reset connection state
+    isConnected = false;
+    connectionAttempts = 0;
+    
+    // Create fresh connections
+    getPgPool();
+    prisma();
+    
+    console.log('✓ Database connections reset successfully');
+    return;
+  } catch (error) {
+    console.error('Failed to reset database connections:', error);
     throw error;
   }
 }
 
-// Test database connection sans lancer de requête
-(async () => {
+// Connect to the database
+export async function connectPrisma(): Promise<void> {
   try {
-    // Utiliser notre nouvelle fonction
-    await handleDatabaseOperation(async () => {
-      console.log('✅ Database connection successful');
-      return true;
-    });
+    if (!isConnected) {
+      connectionAttempts++;
+      console.log(`Connecting to database (attempt ${connectionAttempts}/${MAX_CONNECTION_ATTEMPTS})...`);
+      
+      // Initialize the pool and Prisma
+      getPgPool();
+      prisma();
+      
+      // Test the connection WITHOUT using prepared statements
+      try {
+        // Use direct query with pool instead of Prisma
+        const pool = getPgPool();
+        const client = await pool.connect();
+        try {
+          await client.query('SELECT 1');
+          isConnected = true;
+        } finally {
+          client.release();
+        }
+      } catch (e) {
+        console.error('Test connection failed:', e);
+        throw e;
+      }
+      
+      connectionAttempts = 0;
+      console.log('✓ Database connection established');
+    }
   } catch (error) {
-    console.error('❌ Database connection failed:', error);
-    console.error('Error details:', error instanceof Error ? error.message : String(error));
+    console.error('Failed to connect to database:', error);
+    isConnected = false;
+    
+    if (connectionAttempts >= MAX_CONNECTION_ATTEMPTS) {
+      console.error('Max connection attempts reached');
+      throw new Error('Failed to establish database connection after multiple attempts');
+    }
+    
+    throw error;
   }
-})(); 
+}
+
+// Disconnect from the database
+export async function disconnectPrisma(): Promise<void> {
+  try {
+    // Clean up prepared statements
+    await cleanupPreparedStatements();
+    
+    // Disconnect Prisma
+    if (prismaInstance) {
+      await prismaInstance.$disconnect();
+      prismaInstance = null;
+    }
+    
+    // Close the pool
+    if (pgPool) {
+      await pgPool.end();
+      pgPool = null;
+    }
+    
+    isConnected = false;
+    console.log('Database disconnected');
+  } catch (error) {
+    console.error('Error disconnecting from database:', error);
+    throw error;
+  }
+}
+
+// Handle database operations with retry and connection management
+export async function handleDatabaseOperation<T>(
+  operation: () => Promise<T>,
+  maxRetries = 3
+): Promise<T> {
+  let retries = 0;
+  let lastError: Error | null = null;
+  
+  while (retries <= maxRetries) {
+    try {
+      // Ensure connection is established
+      await connectPrisma();
+      
+      // Execute the operation
+      const result = await operation();
+      return result;
+    } catch (error: any) {
+      lastError = error;
+      retries++;
+      
+      // Log the error with more context
+      console.error(`Database operation failed (attempt ${retries}/${maxRetries + 1}): `, error.message);
+      
+      // Check for prepared statement errors
+      const isPreparedStatementError = 
+        error.message?.includes('prepared statement') || 
+        error.code === '42P05' || 
+        error.code === '26000';
+      
+      if (isPreparedStatementError) {
+        console.log('Detected prepared statement conflict, resetting connections...');
+        await resetPrisma();
+      }
+      
+      if (retries <= maxRetries) {
+        // Wait before retrying with exponential backoff
+        const delay = Math.min(1000 * Math.pow(2, retries - 1), 8000);
+        console.log(`Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        console.error('Max retries reached for database operation');
+        throw error;
+      }
+    }
+  }
+  
+  // This should never happen, but TypeScript needs it
+  throw lastError || new Error('Unknown error during database operation');
+}
+
+// Clean up connections when the process exits
+process.on('beforeExit', async () => {
+  await disconnectPrisma();
+});
+
+process.on('SIGINT', async () => {
+  console.log('SIGINT received, cleaning up database connections...');
+  await disconnectPrisma();
+  process.exit(0);
+});
+
+// Initialize the database connection
+if (typeof window === 'undefined') {
+  // Only run on server side
+  resetPrisma().catch(console.error);
+} 

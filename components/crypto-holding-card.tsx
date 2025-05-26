@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
-import { ArrowUp, ArrowDown, RefreshCw } from "lucide-react";
+import { ArrowUp, ArrowDown, RefreshCw, AreaChart } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@/lib/walletContext";
@@ -10,6 +10,7 @@ import { getCryptoPrice, mapCoinMarketCapToGeckoId } from "@/lib/cryptoService";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import Link from "next/link";
 
 interface CryptoHoldingCardProps {
   id: string;
@@ -38,6 +39,11 @@ export function CryptoHoldingCard({
   const [amountToSell, setAmountToSell] = useState<string>("");
   const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
   const { sellCrypto } = useWallet();
+
+  // État pour afficher le modal de vente
+  const [showSellModal, setShowSellModal] = useState(false);
+  // État pour stocker le montant à vendre
+  const [sellAmount, setSellAmount] = useState(0);
 
   // Récupérer les données réelles de prix
   useEffect(() => {
@@ -136,6 +142,7 @@ export function CryptoHoldingCard({
   const profitLossPercentage = totalInvested > 0 
     ? (profitLoss / totalInvested) * 100 
     : 0;
+  const isProfitable = profitLoss >= 0;
   
   // Déterminer la couleur en fonction de la variation
   const getChangeColor = (change: number) => {
@@ -146,22 +153,22 @@ export function CryptoHoldingCard({
 
   // Fonction pour gérer la vente de crypto
   const handleSell = () => {
-    const amountNum = parseFloat(amountToSell);
-    if (isNaN(amountNum) || amountNum <= 0 || amountNum > amount) {
-      return;
-    }
+    if (sellAmount <= 0 || sellAmount > amount) return;
     
+    // Appel à la fonction de vente du contexte wallet
     const success = sellCrypto(
       cryptoId,
       name,
       symbol,
-      amountNum,
+      sellAmount,
       currentPrice
     );
     
     if (success) {
       setIsDialogOpen(false);
       setAmountToSell("");
+      setShowSellModal(false);
+      setSellAmount(0);
     }
   };
 
@@ -177,6 +184,8 @@ export function CryptoHoldingCard({
     
     if (success) {
       setIsDialogOpen(false);
+      setShowSellModal(false);
+      setSellAmount(0);
     }
   };
 
@@ -453,6 +462,59 @@ export function CryptoHoldingCard({
             </DialogContent>
           </Dialog>
         </div>
+
+        {/* Modal de vente */}
+        {showSellModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-card p-6 rounded-lg shadow-lg max-w-md w-full">
+              <h3 className="text-xl font-bold mb-4">Vendre {symbol.toUpperCase()}</h3>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-1">Montant à vendre</label>
+                <div className="flex space-x-2">
+                  <input
+                    type="number"
+                    value={sellAmount}
+                    onChange={(e) => setSellAmount(Math.min(Number(e.target.value), amount))}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    placeholder={`0.0 ${symbol.toUpperCase()}`}
+                    max={amount}
+                    min={0}
+                  />
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setSellAmount(amount)}
+                    className="whitespace-nowrap"
+                  >
+                    Max
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Valeur: ${(sellAmount * currentPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              </div>
+              
+              <div className="flex justify-between mt-6">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setShowSellModal(false);
+                    setSellAmount(0);
+                  }}
+                >
+                  Annuler
+                </Button>
+                <Button 
+                  variant="destructive"
+                  onClick={handleSell}
+                  disabled={sellAmount <= 0 || sellAmount > amount}
+                >
+                  Confirmer la vente
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -55,8 +55,8 @@ export default function WalletPage() {
           if (cachedPrices && cacheTimestamp) {
             const cachedTime = parseInt(cacheTimestamp);
             
-            // Use cache if less than 10 minutes old
-            if (Date.now() - cachedTime < 10 * 60 * 1000) {
+            // Use cache if less than 15 minutes old (increased from 10)
+            if (Date.now() - cachedTime < 15 * 60 * 1000) {
               const parsedPrices = JSON.parse(cachedPrices);
               
               // Only use cached prices if we have prices for all current holdings
@@ -71,42 +71,75 @@ export default function WalletPage() {
           }
         } catch (err) {
           console.error("Error reading from localStorage:", err);
+          // Continue with API fetching if localStorage fails
         }
       }
       
       // Set a limit to avoid too many concurrent API calls (which often causes rate limit issues)
-      const fetchBatchSize = 3;
+      // Reduced batch size from 3 to 2 to avoid rate limiting
+      const fetchBatchSize = 2;
       
-      for (let i = 0; i < holdings.length; i += fetchBatchSize) {
-        const batchHoldings = holdings.slice(i, i + fetchBatchSize);
-        
-        await Promise.all(
-          batchHoldings.map(async (holding) => {
-            try {
-              const geckoId = mapCoinMarketCapToGeckoId(holding.cryptoId);
-              
-              // Récupérer le prix réel sans limitation
-              const priceData = await getCryptoPrice(geckoId);
-              
-              if (priceData) {
-                // Utiliser le prix réel du marché sans aucune limitation
-                prices[holding.cryptoId] = priceData.current_price;
-              } else {
-                // Si pas de prix disponible, utiliser le prix d'achat
-                prices[holding.cryptoId] = holding.purchasePrice;
+      // Fallback - use purchase prices for all holdings initially
+      // This ensures we have some prices even if API calls fail
+      holdings.forEach(holding => {
+        prices[holding.cryptoId] = holding.purchasePrice;
+      });
+      
+      try {
+        for (let i = 0; i < holdings.length; i += fetchBatchSize) {
+          const batchHoldings = holdings.slice(i, i + fetchBatchSize);
+          
+          // Use Promise.allSettled instead of Promise.all to handle partial failures
+          const results = await Promise.allSettled(
+            batchHoldings.map(async (holding) => {
+              try {
+                const geckoId = mapCoinMarketCapToGeckoId(holding.cryptoId);
+                
+                // Add a timeout to each individual request
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+                
+                try {
+                  // Récupérer le prix réel sans limitation
+                  const priceData = await getCryptoPrice(geckoId);
+                  clearTimeout(timeoutId);
+                  
+                  if (priceData) {
+                    // Utiliser le prix réel du marché sans aucune limitation
+                    return { id: holding.cryptoId, price: priceData.current_price };
+                  }
+                } catch (fetchError) {
+                  clearTimeout(timeoutId);
+                  console.warn(`Fetch error for ${holding.name}:`, fetchError);
+                  // Return null to indicate this particular fetch failed
+                  return null;
+                }
+              } catch (err) {
+                console.error(`Error fetching price for ${holding.name}:`, err);
+                // Return null to indicate this particular fetch failed
+                return null;
               }
-            } catch (err) {
-              console.error(`Error fetching price for ${holding.name}:`, err);
-              // En cas d'erreur, utiliser le prix d'achat
-              prices[holding.cryptoId] = holding.purchasePrice;
+              
+              // If we get here, use the purchase price
+              return { id: holding.cryptoId, price: holding.purchasePrice };
+            })
+          );
+          
+          // Process results, only updating prices for successful fetches
+          results.forEach((result) => {
+            if (result.status === 'fulfilled' && result.value) {
+              prices[result.value.id] = result.value.price;
             }
-          })
-        );
-        
-        // Small delay between batches to avoid rate limiting
-        if (i + fetchBatchSize < holdings.length) {
-          await new Promise(r => setTimeout(r, 500));
+          });
+          
+          // Increased delay between batches to avoid rate limiting
+          if (i + fetchBatchSize < holdings.length) {
+            await new Promise(r => setTimeout(r, 1000)); // Increased from 500ms to 1000ms
+          }
         }
+      } catch (error) {
+        console.error("Error fetching prices:", error);
+        // Continue with what we have
       }
       
       setCurrentPrices(prices);
@@ -125,8 +158,8 @@ export default function WalletPage() {
     
     fetchCurrentPrices();
     
-    // Refresh prices every 30 seconds instead of 10 to reduce API calls
-    const interval = setInterval(fetchCurrentPrices, 30000);
+    // Refresh prices every 60 seconds instead of 30 to reduce API calls
+    const interval = setInterval(fetchCurrentPrices, 60000);
     return () => clearInterval(interval);
   }, [holdings]);
   
