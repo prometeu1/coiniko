@@ -9,7 +9,7 @@ export async function GET() {
     // Force recalculation of rankings first
     await generateInitialRankings();
     
-    // Récupération des classements de la base de données
+    // Récupération des classements de la base de données avec des informations utilisateur complètes
     const rankings = await prisma.rankings.findMany({
       orderBy: {
         rank: 'asc',
@@ -29,6 +29,17 @@ export async function GET() {
     if (!rankings || rankings.length === 0) {
       // Try to get users directly and create rankings
       const users = await prisma.user.findMany({
+        where: {
+          AND: [
+            { email: { not: null } }, // Ensure user has email (from Google OAuth)
+            { 
+              OR: [
+                { name: { not: null } },
+                { image: { not: null } }
+              ]
+            }
+          ]
+        },
         include: {
           portfolios: {
             include: {
@@ -39,7 +50,7 @@ export async function GET() {
       });
       
       if (users.length > 0) {
-        console.log(`Found ${users.length} users, creating initial rankings...`);
+        console.log(`Found ${users.length} real Google users, creating initial rankings...`);
         await generateInitialRankings();
         
         // Try again to get rankings
@@ -64,16 +75,61 @@ export async function GET() {
         }
       }
       
-      // En cas d'échec total, créer un classement factice avec des utilisateurs réels si possible
+      // UNIQUEMENT si vraiment aucun utilisateur réel n'existe, utiliser les fallbacks
+      console.log('No real Google users found, using minimal fallbacks');
       const fallbackRankings = await createFallbackRankings();
       return NextResponse.json(fallbackRankings);
     }
 
-    return NextResponse.json(rankings);
+    // S'assurer qu'on a les bonnes données d'utilisateur et filtrer les utilisateurs factices
+    const validRankings = rankings.filter(ranking => 
+      ranking.user && 
+      ranking.user.id && 
+      ranking.user.id !== 'dummy1' && 
+      ranking.user.id !== 'dummy2' && 
+      ranking.user.id !== 'dummy3' &&
+      ranking.user.email && // Must have email (from Google OAuth)
+      !ranking.user.email.includes('example.com') // Filter out fake emails
+    );
+
+    console.log(`Found ${validRankings.length} valid real user rankings`);
+
+    if (validRankings.length === 0) {
+      console.log('No valid real user rankings found, regenerating...');
+      await generateInitialRankings();
+      
+      const regeneratedRankings = await prisma.rankings.findMany({
+        where: {
+          user: {
+            AND: [
+              { email: { not: null } },
+              { email: { not: { contains: 'example.com' } } }
+            ]
+          }
+        },
+        orderBy: {
+          rank: 'asc',
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              image: true,
+              email: true,
+            },
+          },
+        },
+      });
+      
+      return NextResponse.json(regeneratedRankings);
+    }
+
+    return NextResponse.json(validRankings);
   } catch (error) {
     console.error('Erreur lors de la récupération des classements:', error);
     
-    // En cas d'erreur, essayer de créer des classements de secours
+    // En cas d'erreur, essayer de créer des classements de secours avec de vrais utilisateurs
     const fallbackRankings = await createFallbackRankings();
     return NextResponse.json(fallbackRankings);
   }
@@ -208,13 +264,30 @@ async function generateInitialRankings() {
 // Create fallback rankings with real users if possible
 async function createFallbackRankings() {
   try {
-    // Try to get real users first
+    // Try to get real Google users first (users with email and OAuth data)
     const users = await prisma.user.findMany({
-      take: 10 // Get up to 10 users
+      where: {
+        AND: [
+          { email: { not: null } },
+          { email: { not: { contains: 'example.com' } } }, // Filter out fake emails
+          { 
+            OR: [
+              { name: { not: null } },
+              { image: { not: null } }
+            ]
+          }
+        ]
+      },
+      take: 10, // Get up to 10 real users
+      orderBy: {
+        createdAt: 'desc' // Get most recent users first
+      }
     });
     
+    console.log(`Found ${users.length} real Google users for fallback rankings`);
+    
     if (users.length > 0) {
-      // Create rankings with real users
+      // Create rankings with real Google users
       const fallbackRankings = users.map((user, index) => ({
         id: `fallback-${user.id}`,
         user_id: user.id,
@@ -223,19 +296,38 @@ async function createFallbackRankings() {
         last_updated: new Date(),
         user: { 
           id: user.id, 
-          name: user.name || `Utilisateur ${index + 1}`, 
+          name: user.name || user.email?.split('@')[0] || `User ${index + 1}`, 
           image: user.image || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`,
           email: user.email 
         }
       }));
       
+      // Save these fallback rankings to database for consistency
+      try {
+        await prisma.rankings.deleteMany({});
+        
+        for (const ranking of fallbackRankings) {
+          await prisma.rankings.create({
+            data: {
+              user_id: ranking.user_id,
+              total_value: ranking.total_value,
+              rank: ranking.rank,
+              last_updated: ranking.last_updated,
+            },
+          });
+        }
+      } catch (dbError) {
+        console.error('Error saving fallback rankings to database:', dbError);
+      }
+      
       return fallbackRankings;
     }
   } catch (error) {
-    console.error('Error creating fallback rankings:', error);
+    console.error('Error creating fallback rankings with real users:', error);
   }
   
-  // If no real users, create dummy rankings
+  // If no real users, create dummy rankings (only as absolute last resort)
+  console.log('Creating dummy rankings as absolute last resort');
   return [
     {
       id: 'dummy1',

@@ -318,6 +318,34 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     amount: number,
     price: number
   ): boolean => {
+    // Validation des paramètres d'entrée
+    if (!amount || isNaN(amount) || amount <= 0) {
+      toast({
+        title: "Quantité invalide",
+        description: "Veuillez entrer une quantité valide supérieure à 0.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    if (!price || isNaN(price) || price <= 0) {
+      toast({
+        title: "Prix invalide",
+        description: "Le prix de la crypto n'est pas disponible. Veuillez réessayer.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    if (!cryptoId || !cryptoName || !cryptoSymbol) {
+      toast({
+        title: "Informations manquantes",
+        description: "Les informations de la crypto sont incomplètes.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
     // Vérifier si l'utilisateur a assez d'argent
     const cost = amount * price;
     

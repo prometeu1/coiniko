@@ -133,6 +133,175 @@ FALLBACK_CRYPTO_DETAILS['binancecoin'] = {
   tickers: []
 };
 
+// Add more popular cryptos to the fallback data
+FALLBACK_CRYPTO_DETAILS['solana'] = {
+  id: 'solana',
+  symbol: 'SOL',
+  name: 'Solana',
+  image: {
+    large: 'https://assets.coingecko.com/coins/images/4128/large/solana.png',
+    small: 'https://assets.coingecko.com/coins/images/4128/small/solana.png',
+    thumb: 'https://assets.coingecko.com/coins/images/4128/thumb/solana.png'
+  },
+  market_data: {
+    current_price: { usd: 235.32 },
+    market_cap: { usd: 110000000000 },
+    total_volume: { usd: 4200000000 },
+    high_24h: { usd: 245 },
+    low_24h: { usd: 225 },
+    price_change_percentage_24h: 3.1,
+    price_change_percentage_7d: 12.4,
+    price_change_percentage_30d: 45.2,
+    price_change_percentage_1y: 520.7,
+    ath: { usd: 259.96 },
+    ath_date: { usd: '2021-11-06T00:00:00.000Z' },
+    atl: { usd: 0.500801 },
+    atl_date: { usd: '2020-05-11T00:00:00.000Z' },
+    circulating_supply: 467617819,
+    total_supply: 567617819,
+    max_supply: null
+  },
+  description: { en: 'Solana is a fast, secure, and censorship resistant blockchain providing the open infrastructure required for global adoption.' },
+  categories: ['Smart Contract Platform'],
+  links: {
+    homepage: ['https://solana.com/'],
+    blockchain_site: ['https://explorer.solana.com/'],
+    official_forum_url: ['https://forums.solana.com/'],
+    chat_url: [],
+    twitter_screen_name: 'solana',
+    facebook_username: 'solana',
+    telegram_channel_identifier: 'solanachat',
+    subreddit_url: 'https://reddit.com/r/solana'
+  },
+  tickers: []
+};
+
+FALLBACK_CRYPTO_DETAILS['cardano'] = {
+  id: 'cardano',
+  symbol: 'ADA',
+  name: 'Cardano',
+  image: {
+    large: 'https://assets.coingecko.com/coins/images/975/large/cardano.png',
+    small: 'https://assets.coingecko.com/coins/images/975/small/cardano.png',
+    thumb: 'https://assets.coingecko.com/coins/images/975/thumb/cardano.png'
+  },
+  market_data: {
+    current_price: { usd: 1.12 },
+    market_cap: { usd: 39000000000 },
+    total_volume: { usd: 1800000000 },
+    high_24h: { usd: 1.18 },
+    low_24h: { usd: 1.05 },
+    price_change_percentage_24h: 2.14,
+    price_change_percentage_7d: 8.3,
+    price_change_percentage_30d: 18.7,
+    price_change_percentage_1y: 65.2,
+    ath: { usd: 3.09 },
+    ath_date: { usd: '2021-09-02T00:00:00.000Z' },
+    atl: { usd: 0.01925275 },
+    atl_date: { usd: '2020-03-13T00:00:00.000Z' },
+    circulating_supply: 35045020830,
+    total_supply: 45000000000,
+    max_supply: 45000000000
+  },
+  description: { en: 'Cardano is a blockchain platform for changemakers, innovators, and visionaries, with the tools and technologies required to create possibility for the many, as well as the few, and bring about positive global change.' },
+  categories: ['Smart Contract Platform'],
+  links: {
+    homepage: ['https://cardano.org/'],
+    blockchain_site: ['https://cardanoscan.io/', 'https://explorer.cardano.org/'],
+    official_forum_url: ['https://forum.cardano.org/'],
+    chat_url: [],
+    twitter_screen_name: 'cardano',
+    facebook_username: 'Cardano',
+    telegram_channel_identifier: 'CardanoAnnouncements',
+    subreddit_url: 'https://reddit.com/r/cardano'
+  },
+  tickers: []
+};
+
+FALLBACK_CRYPTO_DETAILS['dogecoin'] = {
+  id: 'dogecoin',
+  symbol: 'DOGE',
+  name: 'Dogecoin',
+  image: {
+    large: 'https://assets.coingecko.com/coins/images/5/large/dogecoin.png',
+    small: 'https://assets.coingecko.com/coins/images/5/small/dogecoin.png',
+    thumb: 'https://assets.coingecko.com/coins/images/5/thumb/dogecoin.png'
+  },
+  market_data: {
+    current_price: { usd: 0.4243 },
+    market_cap: { usd: 62000000000 },
+    total_volume: { usd: 3200000000 },
+    high_24h: { usd: 0.45 },
+    low_24h: { usd: 0.41 },
+    price_change_percentage_24h: 0.95,
+    price_change_percentage_7d: 5.2,
+    price_change_percentage_30d: 245.8,
+    price_change_percentage_1y: 380.5,
+    ath: { usd: 0.7376 },
+    ath_date: { usd: '2021-05-08T00:00:00.000Z' },
+    atl: { usd: 0.00008547 },
+    atl_date: { usd: '2015-05-06T00:00:00.000Z' },
+    circulating_supply: 147000000000,
+    total_supply: 147000000000,
+    max_supply: null
+  },
+  description: { en: 'Dogecoin is a cryptocurrency created by software engineers Billy Markus and Jackson Palmer, who decided to create a payment system as a "joke", making fun of the wild speculation in cryptocurrencies at the time.' },
+  categories: ['Meme Token'],
+  links: {
+    homepage: ['https://dogecoin.com/'],
+    blockchain_site: ['https://dogechain.info/', 'https://bitinfocharts.com/dogecoin/'],
+    official_forum_url: ['https://www.reddit.com/r/dogecoin/'],
+    chat_url: [],
+    twitter_screen_name: 'dogecoin',
+    facebook_username: 'OfficialDogecoin',
+    telegram_channel_identifier: '',
+    subreddit_url: 'https://reddit.com/r/dogecoin'
+  },
+  tickers: []
+};
+
+FALLBACK_CRYPTO_DETAILS['ripple'] = {
+  id: 'ripple',
+  symbol: 'XRP',
+  name: 'XRP',
+  image: {
+    large: 'https://assets.coingecko.com/coins/images/44/large/xrp-symbol-white-128.png',
+    small: 'https://assets.coingecko.com/coins/images/44/small/xrp-symbol-white-128.png',
+    thumb: 'https://assets.coingecko.com/coins/images/44/thumb/xrp-symbol-white-128.png'
+  },
+  market_data: {
+    current_price: { usd: 2.35 },
+    market_cap: { usd: 132000000000 },
+    total_volume: { usd: 12500000000 },
+    high_24h: { usd: 2.45 },
+    low_24h: { usd: 2.25 },
+    price_change_percentage_24h: 1.83,
+    price_change_percentage_7d: 15.2,
+    price_change_percentage_30d: 385.7,
+    price_change_percentage_1y: 125.4,
+    ath: { usd: 3.84 },
+    ath_date: { usd: '2018-01-07T00:00:00.000Z' },
+    atl: { usd: 0.00268621 },
+    atl_date: { usd: '2014-05-22T00:00:00.000Z' },
+    circulating_supply: 56868662755,
+    total_supply: 99988647651,
+    max_supply: 100000000000
+  },
+  description: { en: 'XRP is a digital asset built for payments. It is the native digital asset on the XRP Ledger—an open-source, permissionless and decentralized blockchain technology.' },
+  categories: ['Digital Currency'],
+  links: {
+    homepage: ['https://xrpl.org/'],
+    blockchain_site: ['https://xrpcharts.ripple.com/', 'https://xrpscan.com/'],
+    official_forum_url: ['https://www.xrpchat.com/'],
+    chat_url: [],
+    twitter_screen_name: 'Ripple',
+    facebook_username: 'RipplePayments',
+    telegram_channel_identifier: '',
+    subreddit_url: 'https://reddit.com/r/Ripple'
+  },
+  tickers: []
+};
+
 // Helper function to add delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -291,21 +460,67 @@ function convertCMCToOurFormat(info: any, price: any) {
 // Create fallback data for unknown cryptos
 function createFallbackCryptoDetail(id: string) {
   const isNumeric = /^\d+$/.test(id);
-  const name = isNumeric ? `Crypto ${id}` : id.charAt(0).toUpperCase() + id.slice(1).replace(/-/g, ' ');
-  const symbol = isNumeric ? `C${id.slice(-3)}` : id.substring(0, 4).toUpperCase();
+  
+  // Essayer d'abord de mapper l'ID
+  const mappedId = mapCoinMarketCapToGeckoId(id);
+  let name, symbol;
+  
+  if (mappedId !== id && mappedId !== 'coingecko-undefined') {
+    // Si on a un mapping, utiliser le nom CoinGecko approprié
+    const cryptoNames: Record<string, { name: string; symbol: string }> = {
+      'tron': { name: 'TRON', symbol: 'TRX' },
+      'trueusd': { name: 'TrueUSD', symbol: 'TUSD' },
+      'hyperliquid': { name: 'Hyperliquid', symbol: 'HYPE' },
+      'veritaseum': { name: 'Veritaseum', symbol: 'VERI' },
+      'neo': { name: 'NEO', symbol: 'NEO' },
+      'tezos': { name: 'Tezos', symbol: 'XTZ' },
+      'zilliqa': { name: 'Zilliqa', symbol: 'ZIL' },
+      'basic-attention-token': { name: 'Basic Attention Token', symbol: 'BAT' },
+      '1inch': { name: '1inch', symbol: '1INCH' },
+      'bitcoin-sv': { name: 'Bitcoin SV', symbol: 'BSV' },
+      'pi-network': { name: 'Pi Network', symbol: 'PI' }
+    };
+    
+    if (cryptoNames[mappedId]) {
+      name = cryptoNames[mappedId].name;
+      symbol = cryptoNames[mappedId].symbol;
+    } else {
+      name = mappedId.charAt(0).toUpperCase() + mappedId.slice(1).replace(/-/g, ' ');
+      symbol = mappedId.substring(0, 4).toUpperCase();
+    }
+  } else if (isNumeric) {
+    // Pour les IDs numériques sans mapping, créer un nom générique mais plus informatif
+    name = `Unknown Crypto ${id}`;
+    symbol = `UC${id.slice(-3)}`;
+  } else {
+    name = id.charAt(0).toUpperCase() + id.slice(1).replace(/-/g, ' ');
+    symbol = id.substring(0, 4).toUpperCase();
+  }
   
   // Generate consistent price based on ID
   const hash = id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
   const basePrice = ((hash % 10000) + 100) / 100; // Between $1 and $100
   
+  // Use better fallback images
+  let imageUrl;
+  if (mappedId === 'tron') {
+    imageUrl = 'https://assets.coingecko.com/coins/images/1094/large/tron-logo.png';
+  } else if (mappedId === 'neo') {
+    imageUrl = 'https://assets.coingecko.com/coins/images/480/large/NEO_512_512.png';
+  } else if (mappedId === 'pi-network') {
+    imageUrl = 'https://assets.coingecko.com/coins/images/24408/large/pi.png';
+  } else {
+    imageUrl = `https://api.dicebear.com/7.x/shapes/svg?seed=${id}&backgroundColor=3b82f6&size=128`;
+  }
+  
   return {
-    id: isNumeric ? `coinmarketcap-${id}` : id,
+    id: mappedId !== 'coingecko-undefined' ? mappedId : `crypto-${id}`,
     symbol: symbol,
     name: name,
     image: {
-      large: `https://placehold.co/128x128/3b82f6/FFFFFF?text=${symbol}`,
-      small: `https://placehold.co/64x64/3b82f6/FFFFFF?text=${symbol}`,
-      thumb: `https://placehold.co/32x32/3b82f6/FFFFFF?text=${symbol}`
+      large: imageUrl,
+      small: imageUrl,
+      thumb: imageUrl
     },
     market_data: {
       current_price: { usd: basePrice },
@@ -325,7 +540,7 @@ function createFallbackCryptoDetail(id: string) {
       total_supply: 1000000,
       max_supply: 1000000
     },
-    description: `${name} is a cryptocurrency. This is fallback data as detailed information is not currently available.`,
+    description: { en: `${name} is a cryptocurrency. This is fallback data as detailed information is not currently available.` },
     categories: ['Cryptocurrency'],
     links: {
       homepage: [],

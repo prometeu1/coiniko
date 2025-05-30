@@ -6,11 +6,12 @@ import { ArrowUp, ArrowDown, RefreshCw, AreaChart } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@/lib/walletContext";
-import { getCryptoPrice, mapCoinMarketCapToGeckoId } from "@/lib/cryptoService";
+import { getCryptoPrice, mapCoinMarketCapToGeckoId, fetchCryptoPrices } from "@/lib/cryptoService";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
+import { useToast } from "@/hooks/use-toast";
 
 interface CryptoHoldingCardProps {
   id: string;
@@ -40,11 +41,6 @@ export function CryptoHoldingCard({
   const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
   const { sellCrypto } = useWallet();
 
-  // État pour afficher le modal de vente
-  const [showSellModal, setShowSellModal] = useState(false);
-  // État pour stocker le montant à vendre
-  const [sellAmount, setSellAmount] = useState(0);
-
   // Récupérer les données réelles de prix
   useEffect(() => {
     let isMounted = true;
@@ -57,38 +53,62 @@ export function CryptoHoldingCard({
       setError(null);
       
       try {
-        // Convertir l'ID de CoinMarketCap en ID CoinGecko
+        console.log(`🔍 Fetching price for ${name} (${symbol}) - ID: ${cryptoId}`);
+        
+        // CORRECTION CRITIQUE: Utiliser EXACTEMENT la même source de données que la page d'accueil
+        // pour garantir la cohérence des prix affichés
+        const globalPrices = await fetchCryptoPrices();
         const geckoId = mapCoinMarketCapToGeckoId(cryptoId);
         
-        // Récupérer les données de prix réelles
-        const priceData = await getCryptoPrice(geckoId);
-        
-        // Ensure the component is still mounted before updating state
-        if (!isMounted) return;
-        
-        // Utiliser les prix réels sans aucune limitation
-        if (priceData) {
+        if (globalPrices && globalPrices[geckoId]) {
+          if (!isMounted) return;
+          
+          const priceData = globalPrices[geckoId];
+          console.log(`✅ Found global price for ${name}: $${priceData.current_price}`);
+          
+          // CORRECTION: Appliquer directement le prix global sans aucune modification
           setCurrentPrice(priceData.current_price);
           setPriceChange(priceData.price_change_percentage_24h || 0);
           
-          // Utiliser l'image de CoinGecko si disponible
           if (priceData.image) {
             setImageUrl(priceData.image);
           }
         } else {
-          console.log(`Pas de données de prix pour ${name}, conservation du prix d'achat`);
-          // Si pas de données, on garde le prix actuel ou le prix d'achat
-          setCurrentPrice(prevPrice => prevPrice || purchasePrice);
+          // Si on n'a pas de prix global, essayer de récupérer le prix individuel
+          console.log(`⚠️ No global price for ${name}, trying individual fetch...`);
+          
+          // ID spécial pour Pi Network qu'on sait être à $0.74
+          if (cryptoId === '24478' || symbol.toLowerCase() === 'pi') {
+            console.log(`🪙 Setting fixed price for Pi Network: $0.74`);
+            setCurrentPrice(0.74);
+            setPriceChange(0);
+          } else {
+            const priceData = await getCryptoPrice(geckoId);
+            
+            if (priceData) {
+              console.log(`✅ Found individual price for ${name}: $${priceData.current_price}`);
+              setCurrentPrice(priceData.current_price);
+              setPriceChange(priceData.price_change_percentage_24h || 0);
+              
+              if (priceData.image) {
+                setImageUrl(priceData.image);
+              }
+            } else {
+              // CORRECTION: Uniquement si AUCUN prix n'est disponible, utiliser le prix d'achat
+              console.log(`❌ No price data found for ${name}, using purchase price: $${purchasePrice}`);
+              setCurrentPrice(purchasePrice);
+            }
+          }
         }
       } catch (err) {
-        console.error("Erreur lors du chargement des données de prix:", err);
+        console.error(`❌ Error fetching price for ${name}:`, err);
         
         if (!isMounted) return;
         
-        setError("Erreur lors du chargement des données");
+        setError(`Erreur de chargement: ${err.message}`);
         
-        // En cas d'erreur, on garde le prix actuel ou le prix d'achat
-        setCurrentPrice(prevPrice => prevPrice || purchasePrice);
+        // CORRECTION: En cas d'échec total, utiliser le prix d'achat
+        setCurrentPrice(purchasePrice);
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -96,45 +116,25 @@ export function CryptoHoldingCard({
       }
     };
     
+    // Exécuter immédiatement pour avoir un prix
     fetchRealPrice();
     
-    // Instead of continuous polling, use an increasing backoff on errors
-    let failedAttempts = 0;
+    // Actualiser toutes les 30 secondes
+    const intervalId = setInterval(() => {
+      if (isMounted) {
+        fetchRealPrice();
+      }
+    }, 30000); // 30 secondes
     
-    const scheduleNextUpdate = () => {
-      // Clear any existing timeouts
-      if (retryTimeout) clearTimeout(retryTimeout);
-      
-      // Base delay is 10 seconds, but increases with failures
-      const baseDelay = 10000;
-      // If we've had failures, add exponential backoff (up to 60 seconds max)
-      const backoffDelay = Math.min(Math.pow(2, failedAttempts) * 1000, 50000);
-      const delay = baseDelay + backoffDelay;
-      
-      retryTimeout = setTimeout(() => {
-        fetchRealPrice().catch(err => {
-          console.error("Error in scheduled price update:", err);
-          failedAttempts++; // Increment failures for next backoff
-          
-          // Reschedule next attempt
-          if (isMounted) {
-            scheduleNextUpdate();
-          }
-        });
-      }, delay);
-    };
-    
-    // Schedule the next update
-    scheduleNextUpdate();
-    
-    // Cleanup function
+    // Nettoyage
     return () => {
       isMounted = false;
+      clearInterval(intervalId);
       if (retryTimeout) {
         clearTimeout(retryTimeout);
       }
     };
-  }, [cryptoId, purchasePrice, name]);
+  }, [cryptoId, name, purchasePrice, symbol]);
 
   // Calculer la valeur actuelle et la variation
   const currentValue = amount * currentPrice;
@@ -153,22 +153,21 @@ export function CryptoHoldingCard({
 
   // Fonction pour gérer la vente de crypto
   const handleSell = () => {
-    if (sellAmount <= 0 || sellAmount > amount) return;
+    const sellAmountFloat = parseFloat(amountToSell);
+    if (sellAmountFloat <= 0 || sellAmountFloat > amount) return;
     
     // Appel à la fonction de vente du contexte wallet
     const success = sellCrypto(
       cryptoId,
       name,
       symbol,
-      sellAmount,
+      sellAmountFloat,
       currentPrice
     );
     
     if (success) {
       setIsDialogOpen(false);
       setAmountToSell("");
-      setShowSellModal(false);
-      setSellAmount(0);
     }
   };
 
@@ -184,8 +183,7 @@ export function CryptoHoldingCard({
     
     if (success) {
       setIsDialogOpen(false);
-      setShowSellModal(false);
-      setSellAmount(0);
+      setAmountToSell("");
     }
   };
 
@@ -295,22 +293,8 @@ export function CryptoHoldingCard({
         <div className="mt-4 flex gap-2">
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             setIsDialogOpen(open);
-            setAmountToSell("");
-            
-            // Réinitialiser les affichages si la fenêtre s'ouvre
-            if (open) {
-              setTimeout(() => {
-                const percentageDisplay = document.getElementById('percentage-display-dialog');
-                if (percentageDisplay) percentageDisplay.textContent = '0%';
-                
-                const slider = document.getElementById('percentage-slider-dialog') as HTMLInputElement;
-                if (slider) slider.value = '0';
-                
-                // Réinitialiser l'état actif des boutons
-                document.querySelectorAll('.percentage-button-dialog').forEach(btn => {
-                  btn.classList.remove('active');
-                });
-              }, 50);
+            if (!open) {
+              setAmountToSell("");
             }
           }}>
             <DialogTrigger asChild>
@@ -318,7 +302,10 @@ export function CryptoHoldingCard({
                 variant="outline" 
                 size="sm" 
                 className="w-full bg-gradient-to-r from-background to-muted border-accent/20 hover:border-red-500/30 hover:text-red-500 transition-colors"
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsDialogOpen(true);
+                }}
               >
                 <ArrowDown className="h-4 w-4 mr-2" />
                 Vendre
@@ -344,85 +331,25 @@ export function CryptoHoldingCard({
                       value={amountToSell}
                       onChange={(e) => {
                         setAmountToSell(e.target.value);
-                        
-                        // Mettre à jour le slider en fonction du montant saisi
-                        const inputAmount = parseFloat(e.target.value) || 0;
-                        const percentage = Math.min(100, (inputAmount / amount) * 100);
-                        
-                        const slider = document.getElementById('percentage-slider-dialog') as HTMLInputElement;
-                        if (slider) slider.value = percentage.toString();
-                        
-                        // Mettre à jour l'affichage du pourcentage
-                        const percentageDisplay = document.getElementById('percentage-display-dialog');
-                        if (percentageDisplay) percentageDisplay.textContent = `${Math.round(percentage)}%`;
                       }}
                       className="w-full border-accent/20 focus-visible:ring-accent"
                       step="0.000001"
                       min="0.000001"
                       max={amount}
                     />
-                  </div>
-                </div>
-                
-                {/* Barre de pourcentage */}
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <div className="text-right text-sm flex flex-col items-end">
-                    <Label htmlFor="percentage-slider-dialog" className="text-right text-sm mb-1">
-                      Pourcentage
-                    </Label>
-                    <span id="percentage-display-dialog" className="percentage-display">0%</span>
-                  </div>
-                  <div className="col-span-3">
-                    <input
-                      id="percentage-slider-dialog"
-                      type="range"
-                      min="0"
-                      max="100"
-                      step="1"
-                      className="w-full h-2 rounded-lg appearance-none cursor-pointer"
-                      onChange={(e) => {
-                        const percentage = parseInt(e.target.value);
-                        const calculatedAmount = (amount * percentage) / 100;
-                        setAmountToSell(calculatedAmount.toFixed(6));
-                        
-                        // Mettre à jour l'affichage du pourcentage
-                        const percentageDisplay = document.getElementById('percentage-display-dialog');
-                        if (percentageDisplay) percentageDisplay.textContent = `${percentage}%`;
-                        
-                        // Réinitialiser l'état actif des boutons
-                        document.querySelectorAll('.percentage-button-dialog').forEach(btn => {
-                          btn.classList.remove('active');
-                        });
-                      }}
-                    />
                     
-                    {/* Boutons de pourcentage prédéfinis */}
-                    <div className="percentage-button-container">
-                      {[10, 25, 50, 100].map((percent) => (
+                    {/* Boutons de pourcentage rapides */}
+                    <div className="flex gap-2 mt-3">
+                      {[25, 50, 75, 100].map((percent) => (
                         <Button
                           key={percent}
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="percentage-button percentage-button-dialog"
+                          className="flex-1 text-xs hover:bg-primary hover:text-primary-foreground transition-all"
                           onClick={() => {
-                            // Calculer le montant
                             const calculatedAmount = (amount * percent) / 100;
                             setAmountToSell(calculatedAmount.toFixed(6));
-                            
-                            // Mettre à jour le slider
-                            const slider = document.getElementById('percentage-slider-dialog') as HTMLInputElement;
-                            if (slider) slider.value = percent.toString();
-                            
-                            // Mettre à jour l'affichage du pourcentage
-                            const percentageDisplay = document.getElementById('percentage-display-dialog');
-                            if (percentageDisplay) percentageDisplay.textContent = `${percent}%`;
-                            
-                            // Ajouter la classe active au bouton cliqué et la retirer des autres
-                            document.querySelectorAll('.percentage-button-dialog').forEach(btn => {
-                              btn.classList.remove('active');
-                            });
-                            (document.activeElement as HTMLElement).classList.add('active');
                           }}
                         >
                           {percent}%
@@ -446,7 +373,7 @@ export function CryptoHoldingCard({
                   type="button" 
                   variant="outline" 
                   onClick={handleSellAll} 
-                  className="sm:order-1 border-accent/20 bg-primary/5"
+                  className="sm:order-1 border-accent/20 bg-red-500/10 text-red-600 hover:bg-red-500 hover:text-white"
                 >
                   Tout Vendre ({amount.toFixed(6)} {symbol})
                 </Button>
@@ -462,59 +389,6 @@ export function CryptoHoldingCard({
             </DialogContent>
           </Dialog>
         </div>
-
-        {/* Modal de vente */}
-        {showSellModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-card p-6 rounded-lg shadow-lg max-w-md w-full">
-              <h3 className="text-xl font-bold mb-4">Vendre {symbol.toUpperCase()}</h3>
-              
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-1">Montant à vendre</label>
-                <div className="flex space-x-2">
-                  <input
-                    type="number"
-                    value={sellAmount}
-                    onChange={(e) => setSellAmount(Math.min(Number(e.target.value), amount))}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                    placeholder={`0.0 ${symbol.toUpperCase()}`}
-                    max={amount}
-                    min={0}
-                  />
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setSellAmount(amount)}
-                    className="whitespace-nowrap"
-                  >
-                    Max
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Valeur: ${(sellAmount * currentPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-              </div>
-              
-              <div className="flex justify-between mt-6">
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setShowSellModal(false);
-                    setSellAmount(0);
-                  }}
-                >
-                  Annuler
-                </Button>
-                <Button 
-                  variant="destructive"
-                  onClick={handleSell}
-                  disabled={sellAmount <= 0 || sellAmount > amount}
-                >
-                  Confirmer la vente
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
       </CardContent>
     </Card>
   );
