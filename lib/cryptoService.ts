@@ -387,17 +387,28 @@ export const fetchCryptoPrices = async (): Promise<Record<string, CryptoPrice>> 
 
 // Fonction pour obtenir le prix d'une seule crypto directement avec retry
 const fetchSingleCryptoPrice = async (geckoId: string): Promise<CryptoPrice | null> => {
+  // Protection contre les erreurs non gérées
   try {
+    // Validation des paramètres d'entrée
+    if (!geckoId || typeof geckoId !== 'string') {
+      console.warn('Invalid geckoId provided to fetchSingleCryptoPrice:', geckoId);
+      return createFallbackCryptoPrice(geckoId || 'unknown');
+    }
+    
     // Vérifier d'abord dans localStorage
     const localStorageKey = `crypto_price_${geckoId}`;
-    const localData = getFromLocalStorage(localStorageKey);
-    if (localData) {
-      // Mettre à jour le cache individuel en mémoire 
-      individualCache[geckoId] = {
-        data: localData,
-        timestamp: Date.now()
-      };
-      return localData;
+    try {
+      const localData = getFromLocalStorage(localStorageKey);
+      if (localData) {
+        // Mettre à jour le cache individuel en mémoire 
+        individualCache[geckoId] = {
+          data: localData,
+          timestamp: Date.now()
+        };
+        return localData;
+      }
+    } catch (localStorageError) {
+      console.warn('LocalStorage error, continuing without cache:', localStorageError);
     }
     
     // Vérifier si nous avons des données en cache récentes
@@ -417,29 +428,27 @@ const fetchSingleCryptoPrice = async (geckoId: string): Promise<CryptoPrice | nu
       return createFallbackCryptoPrice(geckoId);
     }
     
+    // Protection contre les environnements sans fetch
+    if (typeof fetch === 'undefined') {
+      console.warn('Fetch not available, using fallback');
+      return FALLBACK_PRICES[geckoId] || createFallbackCryptoPrice(geckoId);
+    }
+    
     let retryCount = 0;
     
     while (retryCount < API_OPTIONS.MAX_RETRIES) {
       try {
-        // Si pas de cache ou expiré, faire une requête spécifique pour cette crypto avec timeout
+        // Vérifier la connectivité réseau côté client
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+          console.log('Device is offline, using fallback data');
+          return FALLBACK_PRICES[geckoId] || createFallbackCryptoPrice(geckoId);
+        }
+
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), API_OPTIONS.REQUEST_TIMEOUT);
         
-        // Use a try-catch block specifically for the fetch operation
         let response;
         try {
-          // Vérifier que fetch est disponible et qu'on est côté client
-          if (typeof window === 'undefined' || typeof fetch === 'undefined') {
-            console.log('Not in browser environment or fetch unavailable, using fallback');
-            throw new Error('fetch is not available');
-          }
-
-          // Vérifier la connectivité réseau côté client
-          if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-            console.log('Device is offline, using fallback data');
-            throw new Error('Device is offline');
-          }
-
           response = await fetch(
             `${API_BASE_URL}/coins/markets?vs_currency=usd&ids=${geckoId}&order=market_cap_desc&per_page=1&page=1&sparkline=false&price_change_percentage=24h${API_PARAMS}`,
             { 
@@ -459,19 +468,8 @@ const fetchSingleCryptoPrice = async (geckoId: string): Promise<CryptoPrice | nu
           clearTimeout(timeoutId);
           console.error(`Network fetch error for ${geckoId}:`, fetchError);
           
-          // Si c'est une erreur réseau, essayer les fallbacks immédiatement
-          if (FALLBACK_PRICES[geckoId]) {
-            console.log(`Using fallback price for ${geckoId} due to network error`);
-            return FALLBACK_PRICES[geckoId];
-          }
-          
-          // Vérifier le cache même expiré
-          if (cachedData) {
-            console.log(`Using expired cache for ${geckoId} due to network error`);
-            return cachedData.data;
-          }
-          
-          throw new Error(`Network error: ${fetchError instanceof Error ? fetchError.message : 'Unknown fetch error'}`);
+          // En cas d'erreur réseau, utiliser fallback immédiatement
+          return FALLBACK_PRICES[geckoId] || createFallbackCryptoPrice(geckoId);
         }
         
         // Gestion du rate limit (429)
@@ -485,11 +483,7 @@ const fetchSingleCryptoPrice = async (geckoId: string): Promise<CryptoPrice | nu
             continue;
           } else {
             // Si rate limited et plus de tentatives, utiliser fallback
-            if (FALLBACK_PRICES[geckoId]) {
-              console.log(`Using fallback price for ${geckoId} after rate limit`);
-              return FALLBACK_PRICES[geckoId];
-            }
-            throw new Error(`Rate limited (429). Too many requests to the API.`);
+            return FALLBACK_PRICES[geckoId] || createFallbackCryptoPrice(geckoId);
           }
         }
         
@@ -498,30 +492,19 @@ const fetchSingleCryptoPrice = async (geckoId: string): Promise<CryptoPrice | nu
           
           // Pour les erreurs 404, utiliser immédiatement les fallbacks
           if (response.status === 404) {
-            if (FALLBACK_PRICES[geckoId]) {
-              console.log(`Using fallback price for ${geckoId} (404 not found)`);
-              return FALLBACK_PRICES[geckoId];
-            }
-            return createFallbackCryptoPrice(geckoId);
+            return FALLBACK_PRICES[geckoId] || createFallbackCryptoPrice(geckoId);
           }
           
           throw new Error(`API error: ${response.status}`);
         }
         
-        // Use a separate try-catch for JSON parsing
+        // Parse JSON avec protection d'erreur
         let data;
         try {
           data = await response.json();
         } catch (jsonError) {
           console.error(`JSON parse error for ${geckoId}:`, jsonError);
-          
-          // En cas d'erreur JSON, utiliser fallback
-          if (FALLBACK_PRICES[geckoId]) {
-            console.log(`Using fallback price for ${geckoId} due to JSON error`);
-            return FALLBACK_PRICES[geckoId];
-          }
-          
-          throw new Error(`JSON parse error: ${jsonError instanceof Error ? jsonError.message : 'Unknown JSON error'}`);
+          return FALLBACK_PRICES[geckoId] || createFallbackCryptoPrice(geckoId);
         }
         
         if (data && data.length > 0) {
@@ -531,26 +514,19 @@ const fetchSingleCryptoPrice = async (geckoId: string): Promise<CryptoPrice | nu
             timestamp: now
           };
           
-          // Sauvegarder dans localStorage
-          saveToLocalStorage(localStorageKey, data[0]);
+          // Sauvegarder dans localStorage avec protection d'erreur
+          try {
+            saveToLocalStorage(localStorageKey, data[0]);
+          } catch (saveError) {
+            console.warn('Failed to save to localStorage:', saveError);
+          }
           
           return data[0];
         }
         
-        // Si donnée pas trouvée, vérifier dans les fallbacks
-        if (FALLBACK_PRICES[geckoId]) {
-          console.log(`Using fallback price for ${geckoId}`);
-          return FALLBACK_PRICES[geckoId];
-        }
+        // Si donnée pas trouvée, utiliser fallback
+        return FALLBACK_PRICES[geckoId] || createFallbackCryptoPrice(geckoId);
         
-        // Si pas de fallback spécifique mais que c'est bitcoin, ethereum ou bnb, créer un fallback générique
-        if (['bitcoin', 'ethereum', 'binancecoin'].includes(geckoId)) {
-          return FALLBACK_PRICES[geckoId];
-        }
-        
-        // Créer un fallback générique
-        const fallbackData = createFallbackCryptoPrice(geckoId);
-        return fallbackData;
       } catch (fetchError) {
         console.error(`Attempt ${retryCount + 1} failed for ${geckoId}:`, fetchError);
         retryCount++;
@@ -561,42 +537,23 @@ const fetchSingleCryptoPrice = async (geckoId: string): Promise<CryptoPrice | nu
         }
         
         // Wait before retrying
-        await delay(API_OPTIONS.RETRY_DELAY * Math.pow(2, retryCount));
+        try {
+          await delay(API_OPTIONS.RETRY_DELAY * Math.pow(2, retryCount));
+        } catch (delayError) {
+          console.warn('Delay error, continuing...', delayError);
+          break;
+        }
       }
     }
     
-    // Si toutes les tentatives échouent, vérifier dans les fallbacks
-    if (FALLBACK_PRICES[geckoId]) {
-      console.log(`Using fallback price after error for ${geckoId}`);
-      return FALLBACK_PRICES[geckoId];
-    }
+    // Si toutes les tentatives échouent, utiliser fallback
+    return FALLBACK_PRICES[geckoId] || createFallbackCryptoPrice(geckoId);
     
-    // Try the cache even if expired
-    if (cachedData) {
-      console.log(`Using expired cache for ${geckoId}`);
-      return cachedData.data;
-    }
+  } catch (globalError) {
+    console.error(`Global error in fetchSingleCryptoPrice for ${geckoId}:`, globalError);
     
-    // Si pas de fallback ni de cache, créer un fallback générique
-    return createFallbackCryptoPrice(geckoId);
-  } catch (error) {
-    console.error(`Erreur globale lors de la récupération du prix pour ${geckoId}:`, error);
-    
-    // Check fallback data first
-    if (FALLBACK_PRICES[geckoId]) {
-      console.log(`Using fallback price after global error for ${geckoId}`);
-      return FALLBACK_PRICES[geckoId];
-    }
-    
-    // Vérifier si nous avons des données en cache même si expirées
-    const cachedData = individualCache[geckoId];
-    if (cachedData) {
-      console.log(`Using expired cache after global error for ${geckoId}`);
-      return cachedData.data;
-    }
-    
-    // Si tout échoue, créer un fallback générique
-    return createFallbackCryptoPrice(geckoId);
+    // En dernier recours, retourner un fallback
+    return FALLBACK_PRICES[geckoId] || createFallbackCryptoPrice(geckoId);
   }
 };
 

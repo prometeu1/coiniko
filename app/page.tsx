@@ -57,6 +57,19 @@ export type Crypto = {
   };
 };
 
+// Cryptos autorisées à avoir une page de détail
+const CRYPTOS_WITH_DETAIL_PAGES = new Set([
+  '1', // Bitcoin
+  '1027', // Ethereum  
+  '5426', // Solana
+  '1839' // BNB
+]);
+
+// Fonction pour vérifier si une crypto a une page de détail
+const hasDetailPage = (cryptoId: number): boolean => {
+  return CRYPTOS_WITH_DETAIL_PAGES.has(cryptoId.toString());
+};
+
 // Disabled unused Dictionary for exceptions
 /* 
 const cryptoNameExceptions: Record<string, string> = {
@@ -96,6 +109,8 @@ export default function Page() {
       header: () => <div>Nom</div>,
       cell: ({ row }) => {
         const crypto = row.original;
+        const hasPage = hasDetailPage(crypto.id);
+        
         return (
           <div className="flex items-center cursor-pointer">
             <div className="relative w-8 h-8 mr-3">
@@ -106,21 +121,18 @@ export default function Page() {
                 height={32}
                 className="crypto-logo"
                 onError={(e) => {
-                  // Fallback if image fails to load
+                  // Fallback simple pour éviter trop de requêtes
                   const target = e.target as HTMLImageElement;
-                  // Try CoinGecko API as fallback
-                  const geckoId = crypto.name.toLowerCase().replace(/ /g, '-');
-                  target.src = `https://assets.coingecko.com/coins/images/1/small/${geckoId}.png`;
-                  
-                  // Second fallback if CoinGecko also fails
-                  target.onerror = () => {
-                    target.src = `https://placehold.co/32x32/3b82f6/FFFFFF?text=${crypto.symbol.substring(0, 3)}`;
-                  };
+                  target.src = `https://cryptologos.cc/logos/${crypto.symbol.toLowerCase()}-${crypto.symbol.toLowerCase()}-logo.png`;
+                  target.onerror = null; // Empêcher d'autres erreurs en boucle
                 }}
               />
             </div>
             <div>
-              <div className="font-medium hover:text-primary hover:underline transition-colors">{crypto.name}</div>
+              <div className={`font-medium transition-colors ${hasPage ? 'hover:text-primary hover:underline' : 'text-muted-foreground'}`}>
+                {crypto.name}
+                {hasPage && <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">Détails</span>}
+              </div>
               <div className="text-sm text-muted-foreground">{crypto.symbol}</div>
             </div>
           </div>
@@ -307,18 +319,20 @@ export default function Page() {
           };
         }
         
-        const formattedData = data.map((crypto: CryptoApiResponse) => ({
-          id: crypto.id,
-          name: crypto.name,
-          symbol: crypto.symbol,
-          cmc_rank: crypto.cmc_rank,
-          price: crypto.quote?.USD?.price ?? 0,
-          percent_change_1h: crypto.quote?.USD?.percent_change_1h ?? null,
-          percent_change_24h: crypto.quote?.USD?.percent_change_24h ?? null,
-          percent_change_7d: crypto.quote?.USD?.percent_change_7d ?? null,
-          market_cap: crypto.quote?.USD?.market_cap ?? 0,
-          volume_24h: crypto.quote?.USD?.volume_24h ?? 0,
-        }));
+        const formattedData = data
+          .map((crypto: CryptoApiResponse) => ({
+            id: crypto.id,
+            name: crypto.name,
+            symbol: crypto.symbol,
+            cmc_rank: crypto.cmc_rank,
+            price: crypto.quote?.USD?.price ?? 0,
+            percent_change_1h: crypto.quote?.USD?.percent_change_1h ?? null,
+            percent_change_24h: crypto.quote?.USD?.percent_change_24h ?? null,
+            percent_change_7d: crypto.quote?.USD?.percent_change_7d ?? null,
+            market_cap: crypto.quote?.USD?.market_cap ?? 0,
+            volume_24h: crypto.quote?.USD?.volume_24h ?? 0,
+          }))
+          .slice(0, 100); // Limiter à 100 cryptos maximum pour une meilleure performance
         setCryptos(formattedData);
       } catch (error) {
         console.error("Error loading cryptocurrencies:", error);
@@ -627,8 +641,12 @@ export default function Page() {
                         <TableRow
                           key={row.id}
                           data-state={row.getIsSelected() && "selected"}
-                          className="hover:bg-primary/5 transition-colors group cursor-pointer"
-                          onClick={() => window.location.href = `/crypto/${row.original.id}`}
+                          className={`hover:bg-primary/5 transition-colors group ${hasDetailPage(row.original.id) ? 'cursor-pointer' : 'cursor-default'}`}
+                          onClick={() => {
+                            if (hasDetailPage(row.original.id)) {
+                              window.location.href = `/crypto/${row.original.id}`;
+                            }
+                          }}
                         >
                           {row.getVisibleCells().map((cell) => (
                             <TableCell key={cell.id} className="py-4 group-hover:text-foreground transition-colors">
