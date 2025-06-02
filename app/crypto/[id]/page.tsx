@@ -500,41 +500,52 @@ export default function CryptoDetailPage() {
   
   // Process chart data based on the selected timeframe
   const processChartData = (timeframe: 'day' | 'week' | 'month' | 'year', data: ChartData | null) => {
-    if (!data || !data.prices || data.prices.length === 0) {
-      // Create synthetic data if no real data is available
-      const now = Date.now();
-      const syntheticData = [];
-      const basePrice = cryptoData?.market_data?.current_price?.usd || 1000;
+    console.log(`Processing chart data for ${timeframe}, data available:`, !!data);
+    
+    if (data && data.prices && Array.isArray(data.prices) && data.prices.length > 0) {
+      // Use real data if available
+      const formatted = data.prices.map(([timestamp, price]) => ({
+        timestamp,
+        date: new Date(timestamp).toLocaleDateString(),
+        value: price
+      }));
       
-      // Generate random data points for the chosen timeframe
-      const points = timeframe === 'day' ? 24 : 
-                    timeframe === 'week' ? 7 : 
-                    timeframe === 'month' ? 30 : 365;
-      
-      for (let i = points; i >= 0; i--) {
-        // Create a slightly fluctuating price based on the base price
-        const randomFactor = 0.98 + (Math.random() * 0.04); // ±2% fluctuation
-        const timestamp = now - (i * 86400000 / (timeframe === 'day' ? 24 : 1));
-        
-        syntheticData.push({
-          timestamp: timestamp,
-          date: new Date(timestamp).toLocaleDateString(),
-          value: basePrice * randomFactor
-        });
-      }
-      
-      setChartData(syntheticData);
+      console.log(`✅ Using real chart data for ${timeframe}: ${formatted.length} points`);
+      setChartData(formatted);
       setChartTimeframe(timeframe);
       return;
     }
     
-    const formatted = data.prices.map(([timestamp, price]) => ({
-      timestamp,
-      date: new Date(timestamp).toLocaleDateString(),
-      value: price
-    }));
+    // Create synthetic data if no real data is available or invalid
+    console.log(`📊 Creating synthetic chart data for ${timeframe}`);
+    const now = Date.now();
+    const syntheticData = [];
+    const basePrice = cryptoData?.market_data?.current_price?.usd || 50000; // Valeur par défaut réaliste
     
-    setChartData(formatted);
+    // Generate data points for the chosen timeframe
+    const points = timeframe === 'day' ? 24 : 
+                  timeframe === 'week' ? 7 : 
+                  timeframe === 'month' ? 30 : 365;
+    
+    const intervalMs = timeframe === 'day' ? 3600000 : // 1 hour
+                      timeframe === 'week' ? 86400000 : // 1 day  
+                      timeframe === 'month' ? 86400000 : // 1 day
+                      86400000 * 10; // 10 days for year
+    
+    for (let i = points; i >= 0; i--) {
+      // Create a slightly fluctuating price based on the base price
+      const randomFactor = 0.95 + (Math.random() * 0.1); // ±5% fluctuation
+      const timestamp = now - (i * intervalMs);
+      
+      syntheticData.push({
+        timestamp: timestamp,
+        date: new Date(timestamp).toLocaleDateString(),
+        value: basePrice * randomFactor
+      });
+    }
+    
+    console.log(`✅ Created ${syntheticData.length} synthetic data points for ${timeframe}`);
+    setChartData(syntheticData);
     setChartTimeframe(timeframe);
   };
   
@@ -717,9 +728,7 @@ export default function CryptoDetailPage() {
                   size="sm"
                   className={chartTimeframe === 'day' ? 'bg-primary text-primary-foreground' : 'border-primary/20 bg-primary/5 hover:bg-primary/10'}
                   onClick={() => {
-                    if (cryptoData.chart_data?.day) {
-                      processChartData('day', cryptoData.chart_data.day);
-                    }
+                    processChartData('day', cryptoData.chart_data?.day || null);
                   }}
                 >
                   24h
@@ -729,9 +738,7 @@ export default function CryptoDetailPage() {
                   size="sm"
                   className={chartTimeframe === 'week' ? 'bg-primary text-primary-foreground' : 'border-primary/20 bg-primary/5 hover:bg-primary/10'}
                   onClick={() => {
-                    if (cryptoData.chart_data?.week) {
-                      processChartData('week', cryptoData.chart_data.week);
-                    }
+                    processChartData('week', cryptoData.chart_data?.week || null);
                   }}
                 >
                   7j
@@ -741,9 +748,7 @@ export default function CryptoDetailPage() {
                   size="sm"
                   className={chartTimeframe === 'month' ? 'bg-primary text-primary-foreground' : 'border-primary/20 bg-primary/5 hover:bg-primary/10'}
                   onClick={() => {
-                    if (cryptoData.chart_data?.month) {
-                      processChartData('month', cryptoData.chart_data.month);
-                    }
+                    processChartData('month', cryptoData.chart_data?.month || null);
                   }}
                 >
                   30j
@@ -753,9 +758,7 @@ export default function CryptoDetailPage() {
                   size="sm"
                   className={chartTimeframe === 'year' ? 'bg-primary text-primary-foreground' : 'border-primary/20 bg-primary/5 hover:bg-primary/10'}
                   onClick={() => {
-                    if (cryptoData.chart_data?.year) {
-                      processChartData('year', cryptoData.chart_data.year);
-                    }
+                    processChartData('year', cryptoData.chart_data?.year || null);
                   }}
                 >
                   1a

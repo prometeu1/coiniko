@@ -250,34 +250,52 @@ const FALLBACK_PRICES: Record<string, CryptoPrice> = {
 
 // Fonction pour récupérer les prix depuis CoinGecko avec retries
 export const fetchCryptoPrices = async (): Promise<Record<string, CryptoPrice>> => {
-  // Vérifier si on est côté client, sinon retourner le cache ou les fallbacks
+  // Protection immédiate pour éviter les erreurs côté client
   if (!isClient) {
-    console.log('Server-side execution, using cache or fallbacks');
-    return Object.keys(priceCache).length > 0 ? priceCache : FALLBACK_PRICES;
+    console.log('Server-side: returning fallback prices');
+    return FALLBACK_PRICES;
   }
 
   const now = Date.now();
   const timeSinceLastFetch = now - lastFetchTime;
   
   // Vérifier d'abord dans localStorage
-  const localStorageData = getFromLocalStorage('crypto_prices');
-  
-  // Vérifier si on a besoin de fetch - utiliser le cache si récent
-  if (timeSinceLastFetch < CACHE_DURATION && Object.keys(priceCache).length > 0) {
-    console.log('Using cached price data');
-    return priceCache;
+  try {
+    const localStorageData = getFromLocalStorage('crypto_prices');
+    
+    // Vérifier si on a besoin de fetch - utiliser le cache si récent
+    if (timeSinceLastFetch < CACHE_DURATION && Object.keys(priceCache).length > 0) {
+      console.log('Using cached price data');
+      return priceCache;
+    }
+    
+    // Si on a des données localStorage récentes, les utiliser
+    if (localStorageData && timeSinceLastFetch < CACHE_DURATION) {
+      console.log('Using localStorage price data');
+      priceCache = localStorageData;
+      return localStorageData;
+    }
+  } catch (storageError) {
+    console.warn('Error accessing localStorage:', storageError);
   }
-  
-  // Si on a des données localStorage récentes, les utiliser
-  if (localStorageData && timeSinceLastFetch < CACHE_DURATION) {
-    console.log('Using localStorage price data');
-    priceCache = localStorageData;
-    return localStorageData;
-  }
-  
+
   // Check if we have any cached data to fall back to
-  const hasExistingCache = Object.keys(priceCache).length > 0 || localStorageData;
-  
+  const hasExistingCache = Object.keys(priceCache).length > 0;
+
+  // Protection contre l'absence de fetch
+  if (typeof fetch === 'undefined') {
+    console.warn('Fetch not available, using fallback data');
+    if (hasExistingCache) return priceCache;
+    return FALLBACK_PRICES;
+  }
+
+  // Vérifier la connexion réseau
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    console.log('Device is offline, using fallback data');
+    if (hasExistingCache) return priceCache;
+    return FALLBACK_PRICES;
+  }
+
   let retryCount = 0;
   
   while (retryCount < API_OPTIONS.MAX_RETRIES) {
@@ -287,11 +305,6 @@ export const fetchCryptoPrices = async (): Promise<Record<string, CryptoPrice>> 
       
       let response;
       try {
-        // Vérifier que fetch est disponible
-        if (typeof fetch === 'undefined') {
-          throw new Error('fetch is not available');
-        }
-
         response = await fetch(
           `${API_BASE_URL}/coins/markets?vs_currency=usd&ids=${POPULAR_CRYPTO_IDS.join(',')}&order=market_cap_desc&per_page=100&page=1&sparkline=false&price_change_percentage=24h${API_PARAMS}`,
           { 
@@ -331,8 +344,13 @@ export const fetchCryptoPrices = async (): Promise<Record<string, CryptoPrice>> 
         lastFetchTime = now;
         
         // Sauvegarder dans localStorage
-        saveToLocalStorage('crypto_prices', newCache);
+        try {
+          saveToLocalStorage('crypto_prices', newCache);
+        } catch (saveError) {
+          console.warn('Error saving to localStorage:', saveError);
+        }
         
+        console.log('Successfully fetched fresh crypto prices');
         return priceCache;
         
       } catch (fetchError) {
@@ -372,11 +390,15 @@ export const fetchCryptoPrices = async (): Promise<Record<string, CryptoPrice>> 
   }
   
   // Check localStorage one more time
-  const emergencyData = getFromLocalStorage('crypto_prices');
-  if (emergencyData) {
-    console.log('Using emergency localStorage data');
-    priceCache = emergencyData;
-    return emergencyData;
+  try {
+    const emergencyData = getFromLocalStorage('crypto_prices');
+    if (emergencyData && Object.keys(emergencyData).length > 0) {
+      console.log('Using emergency localStorage data');
+      priceCache = emergencyData;
+      return emergencyData;
+    }
+  } catch (emergencyError) {
+    console.warn('Error accessing emergency localStorage:', emergencyError);
   }
   
   // Last resort: use fallback data

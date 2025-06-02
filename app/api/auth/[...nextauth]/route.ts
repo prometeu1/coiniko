@@ -1,7 +1,7 @@
-import NextAuth, { NextAuthOptions } from 'next-auth';
-import GoogleProvider from 'next-auth/providers/google';
-import { PrismaAdapter } from '@auth/prisma-adapter';
-import { prisma, disconnectPrisma, connectPrisma, handleDatabaseOperation, resetPrisma } from '@/lib/db';
+import NextAuth from "next-auth";
+import GoogleProvider from "next-auth/providers/google";
+import { PrismaAdapter } from "@auth/prisma-adapter";
+import { prisma } from "@/lib/db";
 
 // Extend the session type to include user ID
 declare module "next-auth" {
@@ -59,62 +59,27 @@ if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
 const fallbackGoogleClientId = '747561554538-hla86ioipagc6naa7nk1msd0lbqdt04s.apps.googleusercontent.com';
 const fallbackGoogleClientSecret = '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';
 
-// Reset DB connection on startup to clear any existing prepared statements
-try {
-  resetPrisma().catch(console.error);
-} catch (e) {
-  console.error('Failed to reset Prisma on startup:', e);
-}
-
 // Utilisé par l'adaptateur Prisma
 const createNewPortfolio = async (userId: string) => {
   try {
-    return await handleDatabaseOperation(async () => {
-      const existingPortfolio = await prisma().portfolios.findFirst({
-        where: { user_id: userId },
-      });
-
-      if (!existingPortfolio) {
-        console.log(`Création d'un nouveau portefeuille pour l'utilisateur ${userId}`);
-        await prisma().portfolios.create({
-          data: {
-            user_id: userId,
-            balance: 100000,
-          },
-        });
-        console.log('Portfolio created successfully');
-      }
-      return true;
+    const existingPortfolio = await prisma().portfolios.findFirst({
+      where: { user_id: userId },
     });
+
+    if (!existingPortfolio) {
+      console.log(`Création d'un nouveau portefeuille pour l'utilisateur ${userId}`);
+      await prisma().portfolios.create({
+        data: {
+          user_id: userId,
+          balance: 100000,
+        },
+      });
+      console.log('Portfolio created successfully');
+    }
+    return true;
   } catch (error) {
     console.error("Error creating portfolio:", error);
-    // Try to reset the connection since we encountered an error
-    try {
-      await resetPrisma();
-    } catch (e) {
-      console.error('Failed to reset after portfolio creation error:', e);
-    }
     return false;
-  }
-};
-
-// Wrap adapter methods with error handling
-const wrapAdapterMethod = async <T>(method: () => Promise<T>, methodName: string): Promise<T | null> => {
-  try {
-    return await handleDatabaseOperation(async () => {
-      return await method();
-    }, 3);
-  } catch (error) {
-    console.error(`Error in ${methodName}:`, error);
-    
-    // For persistent database errors, try to reset the connection
-    try {
-      await resetPrisma();
-    } catch (e) {
-      console.error(`Failed to reset connection after ${methodName} error:`, e);
-    }
-    
-    return null;
   }
 };
 
@@ -124,12 +89,10 @@ const customPrismaAdapter = {
   // Surcharger les méthodes qui causent des problèmes
   async getUserByAccount(providerAccountId) {
     try {
-      return await wrapAdapterMethod(async () => {
-        const adapter = PrismaAdapter(prisma());
-        const user = await adapter.getUserByAccount(providerAccountId);
-        console.log(`getUserByAccount: ${user ? 'User found' : 'User not found'}`, user?.email);
-        return user;
-      }, 'getUserByAccount');
+      const adapter = PrismaAdapter(prisma());
+      const user = await adapter.getUserByAccount(providerAccountId);
+      console.log(`getUserByAccount: ${user ? 'User found' : 'User not found'}`, user?.email);
+      return user;
     } catch (error) {
       console.error("Error in getUserByAccount:", error);
       return null;
@@ -137,12 +100,10 @@ const customPrismaAdapter = {
   },
   async getSessionAndUser(sessionToken) {
     try {
-      return await wrapAdapterMethod(async () => {
-        const adapter = PrismaAdapter(prisma());
-        const result = await adapter.getSessionAndUser(sessionToken);
-        console.log(`getSessionAndUser: ${result ? 'Session found' : 'Session not found'}`);
-        return result;
-      }, 'getSessionAndUser');
+      const adapter = PrismaAdapter(prisma());
+      const result = await adapter.getSessionAndUser(sessionToken);
+      console.log(`getSessionAndUser: ${result ? 'Session found' : 'Session not found'}`);
+      return result;
     } catch (error) {
       console.error("Error in getSessionAndUser:", error);
       return null;
@@ -150,13 +111,11 @@ const customPrismaAdapter = {
   },
   async createUser(userData) {
     try {
-      return await wrapAdapterMethod(async () => {
-        const adapter = PrismaAdapter(prisma());
-        console.log("Creating new user:", userData.email);
-        const user = await adapter.createUser(userData);
-        console.log("User created successfully:", user.id);
-        return user;
-      }, 'createUser');
+      const adapter = PrismaAdapter(prisma());
+      console.log("Creating new user:", userData.email);
+      const user = await adapter.createUser(userData);
+      console.log("User created successfully:", user.id);
+      return user;
     } catch (error) {
       console.error("Error in createUser:", error);
       return null;
@@ -164,13 +123,11 @@ const customPrismaAdapter = {
   },
   async linkAccount(accountData) {
     try {
-      return await wrapAdapterMethod(async () => {
-        const adapter = PrismaAdapter(prisma());
-        console.log("Linking account for user:", accountData.userId);
-        const account = await adapter.linkAccount(accountData);
-        console.log("Account linked successfully");
-        return account;
-      }, 'linkAccount');
+      const adapter = PrismaAdapter(prisma());
+      console.log("Linking account for user:", accountData.userId);
+      const account = await adapter.linkAccount(accountData);
+      console.log("Account linked successfully");
+      return account;
     } catch (error) {
       console.error("Error in linkAccount:", error);
       return null;
@@ -178,11 +135,9 @@ const customPrismaAdapter = {
   },
   async updateUser(userData) {
     try {
-      return await wrapAdapterMethod(async () => {
-        const adapter = PrismaAdapter(prisma());
-        console.log("Updating user:", userData.id);
-        return await adapter.updateUser(userData);
-      }, 'updateUser');
+      const adapter = PrismaAdapter(prisma());
+      console.log("Updating user:", userData.id);
+      return await adapter.updateUser(userData);
     } catch (error) {
       console.error("Error in updateUser:", error);
       return null;
@@ -190,11 +145,9 @@ const customPrismaAdapter = {
   },
   async createSession(sessionData) {
     try {
-      return await wrapAdapterMethod(async () => {
-        const adapter = PrismaAdapter(prisma());
-        console.log("Creating session for user:", sessionData.userId);
-        return await adapter.createSession(sessionData);
-      }, 'createSession');
+      const adapter = PrismaAdapter(prisma());
+      console.log("Creating session for user:", sessionData.userId);
+      return await adapter.createSession(sessionData);
     } catch (error) {
       console.error("Error in createSession:", error);
       return null;
@@ -211,7 +164,7 @@ const getBaseUrl = () => {
     : 'https://coiniko-one.vercel.app';
 };
 
-export const authOptions: NextAuthOptions = {
+export const authOptions = {
   adapter: customPrismaAdapter,
   providers: [
     GoogleProvider({

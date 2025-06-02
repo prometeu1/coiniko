@@ -41,11 +41,11 @@ export function CryptoHoldingCard({
   const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
   const { sellCrypto } = useWallet();
 
-  // Récupérer les données réelles de prix
+  // Fetch price with enhanced reliability
   useEffect(() => {
     let isMounted = true;
-    let retryTimeout: NodeJS.Timeout;
-    
+    let retryTimeout: NodeJS.Timeout | null = null;
+
     const fetchRealPrice = async () => {
       if (!isMounted) return;
       
@@ -56,10 +56,10 @@ export function CryptoHoldingCard({
         console.log(`🔍 Fetching price for ${name} (${symbol}) - ID: ${cryptoId}`);
         
         // CORRECTION CRITIQUE: Utiliser EXACTEMENT la même source de données que la page d'accueil
-        // pour garantir la cohérence des prix affichés
         let priceData = null;
         
         try {
+          // D'abord essayer avec les prix globaux (même source que la page d'accueil)
           const globalPrices = await fetchCryptoPrices();
           const geckoId = mapCoinMarketCapToGeckoId(cryptoId);
           
@@ -86,62 +86,35 @@ export function CryptoHoldingCard({
         
         if (!isMounted) return;
         
-        if (priceData) {
-          // CORRECTION: Appliquer directement le prix trouvé
+        if (priceData && priceData.current_price) {
+          // CORRECTION: Utiliser exactement le prix trouvé, sans modification
           setCurrentPrice(priceData.current_price);
           setPriceChange(priceData.price_change_percentage_24h || 0);
           
           if (priceData.image) {
             setImageUrl(priceData.image);
           }
+          
+          setError(null);
+          console.log(`✅ Updated price for ${name}: $${priceData.current_price}`);
         } else {
-          // Si aucun prix trouvé, utiliser des fallbacks intelligents
-          console.log(`⚠️ No price data found for ${name}, using intelligent fallback`);
-          
-          // Fallbacks intelligents basés sur des prix moyens réalistes
-          let fallbackPrice = purchasePrice;
-          let fallbackChange = 0;
-          
-          if (symbol.toLowerCase() === 'btc' || name.toLowerCase().includes('bitcoin')) {
-            fallbackPrice = 97500 + (Math.random() * 1000 - 500); // BTC autour de $97,500
-            fallbackChange = 1.53;
-          } else if (symbol.toLowerCase() === 'eth' || name.toLowerCase().includes('ethereum')) {
-            fallbackPrice = 3400 + (Math.random() * 200 - 100); // ETH autour de $3,400
-            fallbackChange = 2.1;
-          } else if (symbol.toLowerCase() === 'sol' || name.toLowerCase().includes('solana')) {
-            fallbackPrice = 210 + (Math.random() * 20 - 10); // SOL autour de $210
-            fallbackChange = 4.2;
-          } else if (symbol.toLowerCase() === 'bnb' || name.toLowerCase().includes('bnb')) {
-            fallbackPrice = 690 + (Math.random() * 30 - 15); // BNB autour de $690
-            fallbackChange = 1.8;
-          } else if (symbol.toLowerCase() === 'pi') {
-            fallbackPrice = 0.74; // Pi Network prix fixe
-            fallbackChange = 0;
-          } else {
-            // Pour les autres cryptos, utiliser une variation légère du prix d'achat
-            const variation = (Math.random() * 0.1 - 0.05); // +/- 5%
-            fallbackPrice = purchasePrice * (1 + variation);
-            fallbackChange = variation * 100;
-          }
-          
-          setCurrentPrice(fallbackPrice);
-          setPriceChange(fallbackChange);
-          console.log(`🔄 Applied fallback price for ${name}: $${fallbackPrice.toFixed(2)}`);
+          // Si aucun prix trouvé, garder le prix d'achat sans variation aléatoire
+          console.log(`⚠️ No price data found for ${name}, keeping purchase price`);
+          setCurrentPrice(purchasePrice);
+          setPriceChange(0);
+          setError("Prix de fallback utilisé");
         }
       } catch (err) {
         console.error(`❌ Error fetching price for ${name}:`, err);
         
         if (!isMounted) return;
         
-        // En cas d'erreur totale, utiliser le prix d'achat avec une légère variation
-        const variation = (Math.random() * 0.05 - 0.025); // +/- 2.5%
-        const fallbackPrice = purchasePrice * (1 + variation);
+        // En cas d'erreur totale, utiliser le prix d'achat sans modification
+        setCurrentPrice(purchasePrice);
+        setPriceChange(0);
+        setError("Erreur réseau - prix d'achat affiché");
         
-        setCurrentPrice(fallbackPrice);
-        setPriceChange(variation * 100);
-        setError(`Prix en cache utilisé`); // Message d'erreur moins alarmant
-        
-        console.log(`🔄 Used purchase price with variation for ${name}: $${fallbackPrice.toFixed(2)}`);
+        console.log(`🔄 Used purchase price for ${name}: $${purchasePrice}`);
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -157,7 +130,7 @@ export function CryptoHoldingCard({
       if (isMounted) {
         fetchRealPrice();
       }
-    }, 120000); // 2 minutes au lieu de 30 secondes
+    }, 120000); // 2 minutes
     
     // Nettoyage
     return () => {
@@ -169,24 +142,9 @@ export function CryptoHoldingCard({
     };
   }, [cryptoId, name, purchasePrice, symbol]);
 
-  // Calculer la valeur actuelle et la variation de manière plus réaliste
+  // Calculer la valeur actuelle sans ajustements artificiels
   const currentValue = amount * currentPrice;
-  
-  // CORRECTION: S'assurer que le prix actuel est cohérent avec le prix d'achat
-  // Si la différence est trop grande (plus de 50%), utiliser une variation plus réaliste
-  let adjustedCurrentPrice = currentPrice;
-  const priceVariation = Math.abs((currentPrice - purchasePrice) / purchasePrice);
-  
-  if (priceVariation > 0.5 && !isLoading) {
-    // Si la variation est trop importante, limiter à une variation plus réaliste
-    const maxVariation = 0.1; // Maximum 10% de variation
-    const direction = currentPrice > purchasePrice ? 1 : -1;
-    adjustedCurrentPrice = purchasePrice * (1 + (direction * maxVariation * Math.random()));
-    console.log(`⚠️ Prix ajusté pour ${name}: ${currentPrice} → ${adjustedCurrentPrice}`);
-  }
-  
-  const adjustedCurrentValue = amount * adjustedCurrentPrice;
-  const profitLoss = adjustedCurrentValue - totalInvested;
+  const profitLoss = currentValue - totalInvested;
   const profitLossPercentage = totalInvested > 0 
     ? (profitLoss / totalInvested) * 100 
     : 0;
@@ -210,7 +168,7 @@ export function CryptoHoldingCard({
       name,
       symbol,
       sellAmountFloat,
-      adjustedCurrentPrice
+      currentPrice
     );
     
     if (success) {
@@ -226,7 +184,7 @@ export function CryptoHoldingCard({
       name,
       symbol,
       amount,
-      adjustedCurrentPrice
+      currentPrice
     );
     
     if (success) {
@@ -282,7 +240,7 @@ export function CryptoHoldingCard({
               <span className="font-medium">{amount.toFixed(6)} {symbol}</span>
             </div>
             <div className="text-sm font-bold text-primary">
-              ${adjustedCurrentValue.toFixed(2)}
+              ${currentValue.toFixed(2)}
             </div>
           </div>
         </div>
@@ -302,7 +260,7 @@ export function CryptoHoldingCard({
               )}
             </div>
             <div className="font-medium flex items-center">
-              ${adjustedCurrentPrice.toFixed(2)}
+              ${currentPrice.toFixed(2)}
               {!isLoading && (
                 <RefreshCw 
                   size={14} 
@@ -364,7 +322,7 @@ export function CryptoHoldingCard({
               <DialogHeader>
                 <DialogTitle>Vendre {symbol}</DialogTitle>
                 <DialogDescription>
-                  Prix actuel: ${adjustedCurrentPrice.toFixed(2)}
+                  Prix actuel: ${currentPrice.toFixed(2)}
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -413,7 +371,7 @@ export function CryptoHoldingCard({
                     Valeur
                   </Label>
                   <div id="value" className="col-span-3 p-2 rounded bg-muted/20 font-medium">
-                    ${(parseFloat(amountToSell || "0") * adjustedCurrentPrice).toFixed(2)}
+                    ${(parseFloat(amountToSell || "0") * currentPrice).toFixed(2)}
                   </div>
                 </div>
               </div>
