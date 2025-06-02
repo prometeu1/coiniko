@@ -40,7 +40,7 @@ if (!process.env.NEXTAUTH_URL) {
   console.warn('NEXTAUTH_URL est manquant, définition par défaut');
   process.env.NEXTAUTH_URL = process.env.NODE_ENV === 'development' 
     ? 'http://localhost:3000' 
-    : 'https://coiniko-one.vercel.app';
+    : 'https://coiniko.vercel.app';
 }
 
 if (!process.env.NEXTAUTH_SECRET) {
@@ -71,7 +71,7 @@ const createNewPortfolio = async (userId: string) => {
       await prisma().portfolios.create({
         data: {
           user_id: userId,
-          balance: 100000,
+          balance: 10000,
         },
       });
       console.log('Portfolio created successfully');
@@ -271,7 +271,7 @@ export const authOptions = {
     },
     async redirect({ url, baseUrl }) {
       // Handle redirects safely pour la production
-      const finalBaseUrl = getBaseUrl();
+      const finalBaseUrl = 'https://coiniko.vercel.app';
       
       console.log('Redirect callback:', { url, baseUrl, finalBaseUrl });
       
