@@ -12,6 +12,7 @@ const Table = React.forwardRef<
         "w-full text-left border-collapse bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-gray-300",
         className
       )}
+      style={{ borderSpacing: 0, borderCollapse: "collapse" }}
       {...props}
     />
   </div>
@@ -97,7 +98,7 @@ const TableCell = React.forwardRef<
   <td
     ref={ref}
     className={cn(
-      "px-4 py-3 text-left align-middle",
+      "px-4 py-3 align-middle",
       className
     )}
     {...props}
