@@ -88,13 +88,19 @@ const createNewPortfolio = async (userId: string) => {
 
 // Get the base URL for callbacks
 const getBaseUrl = () => {
-  // En production sur Vercel
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`;
+  // Si l'URL de requête est disponible, l'utiliser en priorité
+  if (process.env.NEXTAUTH_URL) {
+    return process.env.NEXTAUTH_URL;
   }
   
-  // Fallback pour d'autres déploiements en production
-  if (process.env.NODE_ENV === 'production') {
+  // Pour les déploiements Vercel (gérer tous les domaines possibles)
+  if (process.env.VERCEL) {
+    // Accepter n'importe quelle URL de déploiement Vercel liée au projet
+    if (process.env.VERCEL_URL) {
+      return `https://${process.env.VERCEL_URL}`;
+    }
+    
+    // Accepter aussi les URL de projet spécifiques
     return 'https://coiniko.vercel.app';
   }
   
@@ -147,7 +153,7 @@ export const authOptions: NextAuthOptions = {
         sameSite: 'lax',
         path: '/',
         secure: process.env.NODE_ENV === 'production',
-        domain: process.env.NODE_ENV === 'production' ? '.vercel.app' : undefined
+        domain: undefined // Ne pas définir de domaine spécifique pour permettre tous les domaines
       }
     }
   },
@@ -192,7 +198,20 @@ export const authOptions: NextAuthOptions = {
         return `${actualBaseUrl}${url}`;
       }
       
-      // Si l'URL correspond à notre domaine, l'autoriser
+      // Accepter les redirections vers des sous-domaines Vercel de ce projet
+      const vercelDomains = [
+        'coiniko.vercel.app',
+        'coiniko-git-main-prometeu1s-projects.vercel.app',
+        'coiniko-e5mtcrlqk-prometeu1s-projects.vercel.app',
+        'coiniko-prometeu1s-projects.vercel.app'
+      ];
+      
+      // Vérifier si l'URL est l'un des domaines Vercel autorisés
+      if (vercelDomains.some(domain => url.includes(domain))) {
+        return url;
+      }
+      
+      // Si l'URL correspond au domaine de base, l'autoriser
       if (url.startsWith(actualBaseUrl)) {
         return url;
       }
