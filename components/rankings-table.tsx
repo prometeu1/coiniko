@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Medal, User } from "lucide-react";
+import { Medal, User, TrendingUp, TrendingDown } from "lucide-react";
 
 type Ranking = {
   id: string;
@@ -18,6 +18,12 @@ type Ranking = {
   total_value: number;
   rank: number;
   last_updated: string;
+  performance?: {
+    change_1h: number;
+    change_24h: number;
+    change_7d: number;
+    change_all_time: number;
+  };
   user: {
     id: string;
     name: string | null;
@@ -64,6 +70,23 @@ export function RankingsTable({ data, currentUserId }: RankingsTableProps) {
     return "Investisseur anonyme";
   };
 
+  const formatPercentageChange = (change: number) => {
+    const isPositive = change >= 0;
+    const color = isPositive ? "text-green-600" : "text-red-600";
+    const icon = isPositive ? (
+      <TrendingUp className="h-3 w-3 inline mr-1" />
+    ) : (
+      <TrendingDown className="h-3 w-3 inline mr-1" />
+    );
+    
+    return (
+      <span className={`${color} text-xs flex items-center`}>
+        {icon}
+        {isPositive ? '+' : ''}{change.toFixed(2)}%
+      </span>
+    );
+  };
+
   return (
     <div className="w-full overflow-auto">
       <Table>
@@ -72,6 +95,10 @@ export function RankingsTable({ data, currentUserId }: RankingsTableProps) {
             <TableHead className="w-[80px]">Rang</TableHead>
             <TableHead>Investisseur</TableHead>
             <TableHead className="text-right">Valeur du portefeuille</TableHead>
+            <TableHead className="text-center">1H</TableHead>
+            <TableHead className="text-center">24H</TableHead>
+            <TableHead className="text-center">7J</TableHead>
+            <TableHead className="text-center">All-time</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -128,8 +155,41 @@ export function RankingsTable({ data, currentUserId }: RankingsTableProps) {
                     </div>
                   </div>
                 </TableCell>
+                
                 <TableCell className="text-right font-medium">
                   ${Number(ranking.total_value).toLocaleString()}
+                </TableCell>
+
+                <TableCell className="text-center">
+                  {ranking.performance ? (
+                    formatPercentageChange(ranking.performance.change_1h)
+                  ) : (
+                    <span className="text-gray-400 text-xs">-</span>
+                  )}
+                </TableCell>
+
+                <TableCell className="text-center">
+                  {ranking.performance ? (
+                    formatPercentageChange(ranking.performance.change_24h)
+                  ) : (
+                    <span className="text-gray-400 text-xs">-</span>
+                  )}
+                </TableCell>
+
+                <TableCell className="text-center">
+                  {ranking.performance ? (
+                    formatPercentageChange(ranking.performance.change_7d)
+                  ) : (
+                    <span className="text-gray-400 text-xs">-</span>
+                  )}
+                </TableCell>
+
+                <TableCell className="text-center">
+                  {ranking.performance ? (
+                    formatPercentageChange(ranking.performance.change_all_time)
+                  ) : (
+                    <span className="text-gray-400 text-xs">-</span>
+                  )}
                 </TableCell>
               </TableRow>
             );

@@ -321,12 +321,6 @@ export const authOptions: NextAuthOptions = {
     },
     async signOut({ session }) {
       console.log("User signed out");
-      // Clean up database connections on sign out
-      try {
-        await resetPrisma();
-      } catch (error) {
-        console.error("Error resetting Prisma on signout:", error);
-      }
     },
     async createUser({ user }) {
       console.log("New user created:", user.email);
@@ -365,8 +359,6 @@ export const authOptions: NextAuthOptions = {
 // Handle API routes
 export async function GET(request: Request, response: Response) {
   try {
-    // Reset database connection before handling auth requests
-    await resetPrisma();
     return await NextAuth(request, response, authOptions);
   } catch (error) {
     console.error("Error in NextAuth GET handler:", error);
@@ -376,8 +368,6 @@ export async function GET(request: Request, response: Response) {
 
 export async function POST(request: Request, response: Response) {
   try {
-    // Reset database connection before handling auth requests
-    await resetPrisma();
     return await NextAuth(request, response, authOptions);
   } catch (error) {
     console.error("Error in NextAuth POST handler:", error);
