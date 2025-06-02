@@ -157,11 +157,18 @@ const customPrismaAdapter = {
 
 // Get the base URL for callbacks
 const getBaseUrl = () => {
-  if (process.env.NEXTAUTH_URL) return process.env.NEXTAUTH_URL;
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return process.env.NODE_ENV === 'development' 
-    ? 'http://localhost:3000' 
-    : 'https://coiniko-one.vercel.app';
+  // En production sur Vercel
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  
+  // Fallback pour d'autres déploiements en production
+  if (process.env.NODE_ENV === 'production') {
+    return 'https://coiniko.vercel.app';
+  }
+  
+  // En développement
+  return 'http://localhost:3000';
 };
 
 export const authOptions = {
@@ -196,12 +203,14 @@ export const authOptions = {
       console.warn(`Auth warning (${code})`);
     },
     debug(code, metadata) {
-      console.log(`Auth debug (${code}):`, metadata);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Auth debug (${code}):`, metadata);
+      }
     }
   },
   cookies: {
     sessionToken: {
-      name: `next-auth.session-token`,
+      name: process.env.NODE_ENV === 'production' ? '__Secure-next-auth.session-token' : 'next-auth.session-token',
       options: {
         httpOnly: true,
         sameSite: 'lax',
@@ -210,7 +219,7 @@ export const authOptions = {
       }
     },
     callbackUrl: {
-      name: `next-auth.callback-url`,
+      name: process.env.NODE_ENV === 'production' ? '__Secure-next-auth.callback-url' : 'next-auth.callback-url',
       options: {
         httpOnly: true,
         sameSite: 'lax',
@@ -219,7 +228,7 @@ export const authOptions = {
       }
     },
     csrfToken: {
-      name: `next-auth.csrf-token`,
+      name: process.env.NODE_ENV === 'production' ? '__Host-next-auth.csrf-token' : 'next-auth.csrf-token',
       options: {
         httpOnly: true,
         sameSite: 'lax',
@@ -261,11 +270,23 @@ export const authOptions = {
       }
     },
     async redirect({ url, baseUrl }) {
-      // Handle redirects safely
-      if (!url.startsWith('/') && !url.startsWith(baseUrl)) {
-        return baseUrl;
+      // Handle redirects safely pour la production
+      const finalBaseUrl = getBaseUrl();
+      
+      console.log('Redirect callback:', { url, baseUrl, finalBaseUrl });
+      
+      // Si l'URL commence par une barre oblique, c'est une URL relative
+      if (url.startsWith('/')) {
+        return `${finalBaseUrl}${url}`;
       }
-      return url;
+      
+      // Si l'URL correspond à notre domaine, l'autoriser
+      if (url.startsWith(finalBaseUrl)) {
+        return url;
+      }
+      
+      // Sinon, rediriger vers la page d'accueil
+      return finalBaseUrl;
     }
   },
   events: {
@@ -280,31 +301,6 @@ export const authOptions = {
     },
     async linkAccount({ user, account }) {
       console.log("Account linked for user:", user.email);
-    },
-    async session({ session, token }) {
-      // This is called whenever a session is checked
-      // We can use this to detect and fix database issues
-      if (session?.user?.id) {
-        try {
-          // Verify the user exists in the database
-          const userExists = await handleDatabaseOperation(async () => {
-            const user = await prisma().user.findUnique({
-              where: { id: session.user.id as string },
-              select: { id: true }
-            });
-            return !!user;
-          });
-          
-          if (!userExists) {
-            console.error(`Session check failed: User ${session.user.id} not found in database`);
-            // This will cause the session to be invalidated
-            return false;
-          }
-        } catch (error) {
-          console.error("Error checking user in session event:", error);
-          // Don't invalidate the session due to a database error
-        }
-      }
     }
   }
 };

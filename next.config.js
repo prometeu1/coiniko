@@ -2,13 +2,17 @@
 const nextConfig = {
   reactStrictMode: false,
   images: {
+    dangerouslyAllowSVG: true,
+    contentDispositionType: 'attachment',
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     domains: [
-      'lh3.googleusercontent.com', // Pour les images de profil Google
-      'avatars.githubusercontent.com',
-      'localhost',
-      's2.coinmarketcap.com', // Images de CoinMarketCap
-      'assets.coingecko.com', // Images de CoinGecko
-      'api.dicebear.com', // Pour les avatars générés
+      'assets.coingecko.com',
+      'coinmarketcap.com',
+      's2.coinmarketcap.com',
+      'cryptologos.cc',
+      'placehold.co',
+      'api.dicebear.com',
+      'lh3.googleusercontent.com'
     ],
     remotePatterns: [
       {
@@ -21,18 +25,21 @@ const nextConfig = {
     // Correction des URLs de base de données avec les bonnes valeurs sans retour à la ligne
     DATABASE_URL: "postgresql://postgres.cndhozrtfzeqleynszxc:gi5AAop0YRqSSZXD@aws-0-eu-west-3.pooler.supabase.com:6543/postgres",
     DIRECT_URL: "postgresql://postgres.cndhozrtfzeqleynszxc:gi5AAop0YRqSSZXD@aws-0-eu-west-3.pooler.supabase.com:5432/postgres?pgbouncer=false",
+    NEXTAUTH_URL: process.env.NODE_ENV === 'production' 
+      ? 'https://coiniko.vercel.app' 
+      : 'http://localhost:3000',
   },
   async headers() {
     return [
       {
-        source: '/:path*',
+        source: '/api/:path*',
         headers: [
-          {
-            key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https:; frame-ancestors 'none'; form-action 'self'"
-          }
-        ]
-      }
+          { key: 'Access-Control-Allow-Origin', value: process.env.NODE_ENV === 'production' ? 'https://coiniko.vercel.app' : '*' },
+          { key: 'Access-Control-Allow-Methods', value: 'GET, POST, PUT, DELETE, OPTIONS' },
+          { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization' },
+          { key: 'Access-Control-Allow-Credentials', value: 'true' },
+        ],
+      },
     ];
   },
   experimental: {
@@ -55,6 +62,16 @@ const nextConfig = {
       },
     ];
   },
+  async rewrites() {
+    return [
+      {
+        source: '/api/auth/:path*',
+        destination: '/api/auth/:path*',
+      },
+    ];
+  },
+  // Configuration pour les packages externes (nouveau format Next.js 15)
+  serverExternalPackages: ['@prisma/client'],
 };
 
 module.exports = nextConfig; 
