@@ -56,7 +56,7 @@ const nextConfig = {
   async redirects() {
     return [
       {
-        source: '/api/auth/signin',
+        source: 'c/api/auth/signin',
         destination: '/auth/signin',
         permanent: true,
       },
