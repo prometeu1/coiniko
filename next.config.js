@@ -53,23 +53,6 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  async redirects() {
-    return [
-      {
-        source: 'c/api/auth/signin',
-        destination: '/auth/signin',
-        permanent: true,
-      },
-    ];
-  },
-  async rewrites() {
-    return [
-      {
-        source: '/api/auth/:path*',
-        destination: '/api/auth/:path*',
-      },
-    ];
-  },
   // Configuration pour les packages externes (nouveau format Next.js 15)
   serverExternalPackages: ['@prisma/client'],
 };
