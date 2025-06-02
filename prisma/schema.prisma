@@ -62,13 +62,14 @@ model VerificationToken {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model portfolios {
-  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  created_at   DateTime       @default(now()) @db.Timestamptz(6)
+  id           String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at   DateTime           @default(now()) @db.Timestamptz(6)
   user_id      String
-  balance      Decimal?       @default(100000) @db.Decimal
+  balance      Decimal?           @default(100000) @db.Decimal
   holdings     holdings[]
-  user         User           @relation(fields: [user_id], references: [id])
+  user         User               @relation(fields: [user_id], references: [id])
   transactions transactions[]
+  history      portfolio_history[]
 }
 
 model holdings {
@@ -104,4 +105,14 @@ model rankings {
   rank         Int
   last_updated DateTime @default(now()) @db.Timestamptz(6)
   user         User     @relation(fields: [user_id], references: [id])
+}
+
+model portfolio_history {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  portfolio_id String     @db.Uuid
+  total_value  Decimal    @db.Decimal
+  recorded_at  DateTime   @default(now()) @db.Timestamptz(6)
+  portfolio    portfolios @relation(fields: [portfolio_id], references: [id], onDelete: Cascade)
+  
+  @@index([portfolio_id, recorded_at])
 }
