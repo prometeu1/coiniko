@@ -88,18 +88,14 @@ const createNewPortfolio = async (userId: string) => {
 
 // Get the base URL for callbacks
 const getBaseUrl = () => {
-  // En production sur Vercel
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`;
-  }
-  
-  // Fallback pour d'autres déploiements en production
-  if (process.env.NODE_ENV === 'production') {
-    return 'https://coiniko.vercel.app';
-  }
-  
   // En développement
-  return 'http://localhost:3000';
+  if (process.env.NODE_ENV === 'development') {
+    return 'http://localhost:3000';
+  }
+  
+  // En production, utiliser TOUJOURS le domaine personnalisé
+  // Ne pas utiliser VERCEL_URL car cela peut être l'URL automatique de déploiement
+  return 'https://coiniko.vercel.app';
 };
 
 export const authOptions: NextAuthOptions = {
@@ -147,7 +143,7 @@ export const authOptions: NextAuthOptions = {
         sameSite: 'lax',
         path: '/',
         secure: process.env.NODE_ENV === 'production',
-        domain: process.env.NODE_ENV === 'production' ? '.vercel.app' : undefined
+        domain: undefined
       }
     }
   },
