@@ -1,10 +1,17 @@
 // app/api/wallet/route.ts
-import { prisma } from '@/lib/db'
+import { prisma, handleDatabaseOperation } from '@/lib/db'
 
 export async function GET() {
-  const portfolios = await prisma.portfolios.findMany({
-    orderBy: { balance: 'desc' },
-  })
+  try {
+    const portfolios = await handleDatabaseOperation(async () => {
+      return prisma.portfolios.findMany({
+        orderBy: { balance: 'desc' },
+      });
+    });
 
-  return Response.json(portfolios)
+    return Response.json(portfolios);
+  } catch (error) {
+    console.error("Error fetching portfolios:", error);
+    return new Response('Database error', { status: 500 });
+  }
 }

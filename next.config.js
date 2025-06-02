@@ -8,6 +8,7 @@ const nextConfig = {
       'localhost',
       's2.coinmarketcap.com', // Images de CoinMarketCap
       'assets.coingecko.com', // Images de CoinGecko
+      'api.dicebear.com', // Pour les avatars générés
     ],
     remotePatterns: [
       {

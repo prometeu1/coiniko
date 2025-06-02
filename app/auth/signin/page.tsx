@@ -9,10 +9,6 @@ import { FaGoogle } from "react-icons/fa";
 import Link from "next/link";
 import Image from "next/image";
 
-// Utiliser le port 3000
-const PORT = 3000;
-const NEXTAUTH_URL = `http://localhost:${PORT}`;
-
 // Animation effect with glowing element
 const GlowingEffect = () => {
   return (
@@ -59,29 +55,70 @@ function SignInContent() {
   const { data: session, status } = useSession();
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Get error from URL if present
+  useEffect(() => {
+    const errorParam = searchParams.get('error');
+    if (errorParam) {
+      console.error('Auth error from URL:', errorParam);
+      
+      // Customize error message based on error type
+      if (errorParam === 'Callback') {
+        setError(`Erreur d'authentification: Problème de connexion à la base de données. Veuillez réessayer.`);
+      } else if (errorParam === 'OAuthCallback') {
+        setError(`Erreur d'authentification: Problème de session. Veuillez réessayer.`);
+      } else if (errorParam === 'OAuthSignin') {
+        setError(`Erreur d'authentification: Problème lors de l'initialisation de la connexion. Veuillez réessayer.`);
+      } else if (errorParam === 'OAuthAccountNotLinked') {
+        setError(`Ce compte est déjà associé à une autre méthode de connexion. Veuillez utiliser votre méthode de connexion initiale.`);
+      } else if (errorParam === 'Configuration') {
+        setError(`Problème de configuration du serveur. Veuillez contacter l'administrateur.`);
+      } else if (errorParam === 'AccessDenied') {
+        setError(`Accès refusé. Vous n'avez pas l'autorisation de vous connecter.`);
+      } else if (errorParam === 'Verification') {
+        setError(`Problème de vérification. Veuillez réessayer.`);
+      } else {
+        setError(`Erreur d'authentification: ${errorParam}`);
+      }
+    }
+  }, [searchParams]);
 
   // Redirect if already authenticated
   useEffect(() => {
     if (status === "authenticated" && session) {
+      console.log('User authenticated, redirecting to home');
       router.push("/");
     }
   }, [status, session, router]);
 
   const handleGoogleSignIn = async () => {
-    setIsLoading(true);
-    
     try {
-      console.log("Trying to sign in with Google...");
+      setIsLoading(true);
+      setError(null);
       
-      await signIn("google", {
-        redirect: true,
-        callbackUrl: window.location.origin
+      console.log("Tentative de connexion avec Google...");
+      
+      // Clear any existing cookies before sign-in attempt
+      document.cookie.split(';').forEach(cookie => {
+        const [name] = cookie.split('=');
+        if (name.trim().startsWith('next-auth')) {
+          document.cookie = `${name.trim()}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+        }
       });
       
-      // Cette partie ne sera pas exécutée avec redirect: true
+      // Use simple direct approach - let NextAuth handle everything
+      await signIn("google", {
+        callbackUrl: "/",  // Always redirect to home page
+        redirect: true
+      });
+      
+      // This code won't execute due to the redirect
       setIsLoading(false);
+      
     } catch (error) {
-      console.error("Error signing in with Google:", error);
+      console.error("Exception lors de la connexion avec Google:", error);
+      setError("Erreur de connexion. Veuillez réessayer.");
       setIsLoading(false);
     }
   };
@@ -116,6 +153,21 @@ function SignInContent() {
           <CardDescription className="text-center text-base">
             Connectez-vous pour accéder à votre portefeuille crypto
           </CardDescription>
+          
+          {error && (
+            <div className="mt-4 p-3 bg-destructive/10 text-destructive rounded-md text-sm">
+              {error}
+              <div className="mt-2 text-xs">
+                <Button 
+                  variant="link" 
+                  className="h-auto p-0 text-destructive"
+                  onClick={() => setError(null)}
+                >
+                  Effacer cette erreur
+                </Button>
+              </div>
+            </div>
+          )}
         </CardHeader>
         
         <CardContent className="space-y-6 relative z-10">
@@ -155,7 +207,7 @@ function SignInContent() {
             </svg>
           </div>
           <h3 className="font-medium mb-2">Capital Virtuel</h3>
-          <p className="text-sm text-muted-foreground">Commencez avec 10 000$ virtuels pour construire votre portefeuille</p>
+          <p className="text-sm text-muted-foreground">Commencez avec 100 000$ virtuels pour construire votre portefeuille</p>
         </div>
         
         <div className="flex flex-col items-center text-center">
