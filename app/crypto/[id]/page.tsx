@@ -1130,12 +1130,19 @@ export default function CryptoDetailPage() {
                     const numAmount = Number(amount);
                     const cost = numAmount * (cryptoData.market_data?.current_price?.usd || 0);
                     
-                    if (cost > balance) {
+                    if (cost > balance + 0.01) {
                       alert(`Solde insuffisant. Vous avez besoin de ${formatCurrency(cost)} mais votre solde est de ${formatCurrency(balance)}.`);
                       return;
                     }
                     
-                    const success = buyCrypto(cryptoId, numAmount, cryptoData.market_data?.current_price?.usd || 0);
+                    const success = buyCrypto(
+                      cryptoId,
+                      cryptoData.name,
+                      cryptoData.symbol,
+                      numAmount,
+                      cryptoData.market_data?.current_price?.usd || 0
+                    );
+                    
                     if (success) {
                       alert(`Achat réussi! Vous avez acheté ${numAmount} ${cryptoData.symbol} pour ${formatCurrency(cost)}.`);
                     } else {
@@ -1207,7 +1214,13 @@ export default function CryptoDetailPage() {
                           }
                           
                           const revenue = numAmount * (cryptoData.market_data?.current_price?.usd || 0);
-                          const success = sellCrypto(cryptoId, numAmount, cryptoData.market_data?.current_price?.usd || 0);
+                          const success = sellCrypto(
+                            cryptoId,
+                            cryptoData.name,
+                            cryptoData.symbol,
+                            numAmount,
+                            cryptoData.market_data?.current_price?.usd || 0
+                          );
                           
                           if (success) {
                             alert(`Vente réussie! Vous avez vendu ${numAmount} ${cryptoData.symbol} pour ${formatCurrency(revenue)}.`);
