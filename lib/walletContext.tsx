@@ -349,17 +349,18 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     // Vérifier si l'utilisateur a assez d'argent
     const cost = amount * price;
     
-    if (cost > balance) {
+    // Améliorer la vérification des fonds avec une tolérance pour les erreurs de précision
+    if (cost > balance + 0.01) { // Tolérance de 1 centime pour les erreurs de calcul
       toast({
         title: "Fonds insuffisants",
-        description: "Vous n'avez pas assez de fonds pour cet achat.",
+        description: `Vous avez besoin de $${cost.toFixed(2)} mais votre solde est de $${balance.toFixed(2)}.`,
         variant: "destructive",
       });
       return false;
     }
 
-    // Ne pas modifier le coût, utiliser directement la valeur calculée
-    const actualCost = parseFloat(cost.toFixed(2));
+    // S'assurer que le coût ne dépasse jamais la balance disponible
+    const actualCost = Math.min(parseFloat(cost.toFixed(2)), balance);
     const actualAmount = parseFloat(amount.toFixed(8));
     
     // Simuler l'achat côté client pour une expérience fluide

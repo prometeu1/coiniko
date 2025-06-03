@@ -805,7 +805,18 @@ export default function Page() {
                     if (tradeType === 'buy' && selectedCrypto) {
                       // Calculer le montant basé sur un pourcentage de la balance
                       const maxAmount = balance / selectedCrypto.price;
-                      const calculatedAmount = (maxAmount * percentage) / 100;
+                      let calculatedAmount = (maxAmount * percentage) / 100;
+                      
+                      // Pour 100%, s'assurer qu'on ne dépasse pas exactement la balance disponible
+                      if (percentage === 100) {
+                        // Calculer le coût exact et s'assurer qu'il ne dépasse pas la balance
+                        const exactCost = calculatedAmount * selectedCrypto.price;
+                        if (exactCost > balance) {
+                          // Réajuster légèrement le montant pour être sûr de ne pas dépasser
+                          calculatedAmount = (balance * 0.999) / selectedCrypto.price; // 99.9% pour éviter les erreurs de précision
+                        }
+                      }
+                      
                       setAmount(calculatedAmount.toFixed(6));
                     } else if (tradeType === 'sell' && selectedCrypto) {
                       // Calculer le montant basé sur un pourcentage des actifs
@@ -845,7 +856,18 @@ export default function Page() {
                         if (tradeType === 'buy' && selectedCrypto) {
                           // Calculer le montant basé sur un pourcentage de la balance
                           const maxAmount = balance / selectedCrypto.price;
-                          const calculatedAmount = (maxAmount * percent) / 100;
+                          let calculatedAmount = (maxAmount * percent) / 100;
+                          
+                          // Pour 100%, s'assurer qu'on ne dépasse pas exactement la balance disponible
+                          if (percent === 100) {
+                            // Calculer le coût exact et s'assurer qu'il ne dépasse pas la balance
+                            const exactCost = calculatedAmount * selectedCrypto.price;
+                            if (exactCost > balance) {
+                              // Réajuster légèrement le montant pour être sûr de ne pas dépasser
+                              calculatedAmount = (balance * 0.999) / selectedCrypto.price; // 99.9% pour éviter les erreurs de précision
+                            }
+                          }
+                          
                           setAmount(calculatedAmount.toFixed(6));
                         } else if (tradeType === 'sell' && selectedCrypto) {
                           // Calculer le montant basé sur un pourcentage des actifs
