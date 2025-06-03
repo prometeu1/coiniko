@@ -557,7 +557,7 @@ export default function WalletPage() {
                     Vos cryptomonnaies actuelles et leur valeur
                   </CardDescription>
                 </div>
-                <Button variant="outline" className="bg-primary/10 border-primary/20">Acheter une nouvelle crypto</Button>
+                <Button variant="outline" className="bg-primary/10 border-primary/20" onClick={() => window.location.href = '/'}>Acheter une nouvelle crypto</Button>
               </div>
             </CardHeader>
             <CardContent>
