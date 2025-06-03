@@ -697,13 +697,35 @@ export default function CryptoDetailPage() {
           <Button
             variant="default"
             onClick={() => {
-              // Logic to open buy modal would go here
-              alert(`Achat de ${cryptoData.symbol} bientôt disponible!`);
+              const amount = prompt(`Combien de ${cryptoData.symbol} voulez-vous acheter?`);
+              if (amount && !isNaN(Number(amount))) {
+                const numAmount = Number(amount);
+                const cost = numAmount * (cryptoData.market_data?.current_price?.usd || 0);
+                
+                if (cost > balance + 0.01) {
+                  alert(`Solde insuffisant. Vous avez besoin de ${formatCurrency(cost)} mais votre solde est de ${formatCurrency(balance)}.`);
+                  return;
+                }
+                
+                const success = buyCrypto(
+                  cryptoId,
+                  cryptoData.name,
+                  cryptoData.symbol,
+                  numAmount,
+                  cryptoData.market_data?.current_price?.usd || 0
+                );
+                
+                if (success) {
+                  alert(`Achat réussi! Vous avez acheté ${numAmount} ${cryptoData.symbol} pour ${formatCurrency(cost)}.`);
+                } else {
+                  alert('Erreur lors de l\'achat. Veuillez réessayer.');
+                }
+              }
             }}
-            className="bg-gradient-to-r from-primary to-blue-500 hover:opacity-90"
+            className="bg-gradient-to-r from-green-500 to-primary hover:opacity-90"
           >
             <Wallet className="h-4 w-4 mr-2" />
-            Acheter
+            Acheter {cryptoData.symbol}
           </Button>
         </div>
       </div>
@@ -1089,153 +1111,159 @@ export default function CryptoDetailPage() {
       {/* Buy/Sell section with improved design */}
       <Card className="mb-10 overflow-hidden border-border/30 bg-card/60 backdrop-blur-sm shadow-lg">
         <CardHeader className="border-b border-border/20">
-          <CardTitle className="flex items-center">
-            <TrendingUp className="h-5 w-5 mr-2 text-primary" />
+          <CardTitle className="flex items-center text-2xl">
+            <TrendingUp className="h-6 w-6 mr-3 text-primary" />
             Trader {cryptoData.name}
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-base mt-2">
             Achetez et vendez {cryptoData.symbol} directement depuis votre portefeuille
           </CardDescription>
         </CardHeader>
-        <CardContent className="p-6">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="p-6 rounded-lg bg-gradient-to-r from-green-500/10 to-primary/5 border border-green-500/20 relative overflow-hidden group">
-              <div className="absolute inset-0 bg-gradient-to-r from-green-500/20 to-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+        <CardContent className="p-8">
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="p-8 rounded-xl bg-gradient-to-br from-green-500/10 via-primary/5 to-green-400/5 border border-green-500/20 relative overflow-hidden group hover:shadow-lg transition-all duration-300">
+              <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               
-              <h3 className="text-xl font-bold mb-3 flex items-center">
-                <ArrowUp className="h-5 w-5 mr-2 text-green-500" />
-                Acheter {cryptoData.symbol}
-              </h3>
-              
-              <p className="text-muted-foreground mb-4">
-                Ajoutez {cryptoData.symbol} à votre portefeuille et diversifiez vos investissements en cryptomonnaies.
-              </p>
-              
-              <div className="space-y-3 mb-4">
-                <div className="flex justify-between text-sm">
-                  <span>Prix actuel:</span>
-                  <span className="font-medium">{formatCurrency(cryptoData.market_data?.current_price?.usd || 0)}</span>
+              <div className="relative z-10">
+                <h3 className="text-2xl font-bold mb-4 flex items-center text-green-600">
+                  <ArrowUp className="h-6 w-6 mr-3 text-green-500" />
+                  Acheter {cryptoData.symbol}
+                </h3>
+                
+                <p className="text-muted-foreground mb-6 leading-relaxed">
+                  Ajoutez {cryptoData.symbol} à votre portefeuille et diversifiez vos investissements en cryptomonnaies.
+                </p>
+                
+                <div className="space-y-4 mb-6 bg-background/50 rounded-lg p-4 border border-border/30">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Prix actuel:</span>
+                    <span className="font-semibold text-lg">{formatCurrency(cryptoData.market_data?.current_price?.usd || 0)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Votre solde:</span>
+                    <span className="font-semibold text-lg text-primary">{formatCurrency(balance)}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span>Votre solde:</span>
-                  <span className="font-medium">{formatCurrency(balance)}</span>
-                </div>
+                
+                <Button 
+                  size="lg"
+                  className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold py-3 h-auto group-hover:shadow-lg transition-all duration-300"
+                  onClick={() => {
+                    const amount = prompt(`Combien de ${cryptoData.symbol} voulez-vous acheter?`);
+                    if (amount && !isNaN(Number(amount))) {
+                      const numAmount = Number(amount);
+                      const cost = numAmount * (cryptoData.market_data?.current_price?.usd || 0);
+                      
+                      if (cost > balance + 0.01) {
+                        alert(`Solde insuffisant. Vous avez besoin de ${formatCurrency(cost)} mais votre solde est de ${formatCurrency(balance)}.`);
+                        return;
+                      }
+                      
+                      const success = buyCrypto(
+                        cryptoId,
+                        cryptoData.name,
+                        cryptoData.symbol,
+                        numAmount,
+                        cryptoData.market_data?.current_price?.usd || 0
+                      );
+                      
+                      if (success) {
+                        alert(`Achat réussi! Vous avez acheté ${numAmount} ${cryptoData.symbol} pour ${formatCurrency(cost)}.`);
+                      } else {
+                        alert('Erreur lors de l\'achat. Veuillez réessayer.');
+                      }
+                    }
+                  }}
+                >
+                  <ArrowUp className="h-5 w-5 mr-2" />
+                  Acheter {cryptoData.symbol} maintenant
+                </Button>
               </div>
-              
-              <Button 
-                className="w-full bg-gradient-to-r from-green-500 to-primary group-hover:opacity-90 transition-opacity"
-                onClick={() => {
-                  const amount = prompt(`Combien de ${cryptoData.symbol} voulez-vous acheter?`);
-                  if (amount && !isNaN(Number(amount))) {
-                    const numAmount = Number(amount);
-                    const cost = numAmount * (cryptoData.market_data?.current_price?.usd || 0);
-                    
-                    if (cost > balance + 0.01) {
-                      alert(`Solde insuffisant. Vous avez besoin de ${formatCurrency(cost)} mais votre solde est de ${formatCurrency(balance)}.`);
-                      return;
-                    }
-                    
-                    const success = buyCrypto(
-                      cryptoId,
-                      cryptoData.name,
-                      cryptoData.symbol,
-                      numAmount,
-                      cryptoData.market_data?.current_price?.usd || 0
-                    );
-                    
-                    if (success) {
-                      alert(`Achat réussi! Vous avez acheté ${numAmount} ${cryptoData.symbol} pour ${formatCurrency(cost)}.`);
-                    } else {
-                      alert('Erreur lors de l\'achat. Veuillez réessayer.');
-                    }
-                  }
-                }}
-              >
-                <ArrowUp className="h-4 w-4 mr-2" />
-                Acheter {cryptoData.symbol}
-              </Button>
             </div>
             
-            <div className="p-6 rounded-lg bg-gradient-to-r from-red-500/10 to-primary/5 border border-red-500/20 relative overflow-hidden group">
-              <div className="absolute inset-0 bg-gradient-to-r from-red-500/20 to-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+            <div className="p-8 rounded-xl bg-gradient-to-br from-red-500/10 via-red-400/5 to-red-300/5 border border-red-500/20 relative overflow-hidden group hover:shadow-lg transition-all duration-300">
+              <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 to-red-400/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
               
-              <h3 className="text-xl font-bold mb-3 flex items-center">
-                <ArrowDown className="h-5 w-5 mr-2 text-red-500" />
-                Vendre {cryptoData.symbol}
-              </h3>
-              
-              {(() => {
-                const holding = getCryptoHolding(cryptoId);
-                const hasHolding = holding && holding.amount > 0;
+              <div className="relative z-10">
+                <h3 className="text-2xl font-bold mb-4 flex items-center text-red-600">
+                  <ArrowDown className="h-6 w-6 mr-3 text-red-500" />
+                  Vendre {cryptoData.symbol}
+                </h3>
                 
-                return (
-                  <>
-                    <p className="text-muted-foreground mb-4">
-                      {hasHolding 
-                        ? `Vous possédez ${holding.amount.toFixed(6)} ${cryptoData.symbol} dans votre portefeuille.`
-                        : `Vous ne possédez pas de ${cryptoData.symbol} dans votre portefeuille actuellement.`
-                      }
-                    </p>
-                    
-                    {hasHolding && (
-                      <div className="space-y-3 mb-4">
-                        <div className="flex justify-between text-sm">
-                          <span>Quantité possédée:</span>
-                          <span className="font-medium">{holding.amount.toFixed(6)} {cryptoData.symbol}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span>Valeur actuelle:</span>
-                          <span className="font-medium">{formatCurrency(holding.amount * (cryptoData.market_data?.current_price?.usd || 0))}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span>Prix d'achat moyen:</span>
-                          <span className="font-medium">{formatCurrency(holding.average_buy_price)}</span>
-                        </div>
-                      </div>
-                    )}
-                    
-                    <Button 
-                      variant="outline" 
-                      className="w-full border-red-500/30 text-red-500 hover:bg-red-500/10 group-hover:border-red-500/50 transition-all"
-                      disabled={!hasHolding}
-                      onClick={() => {
-                        if (!hasHolding) {
-                          alert(`Vous ne possédez pas de ${cryptoData.symbol} dans votre portefeuille.`);
-                          return;
+                {(() => {
+                  const holding = getCryptoHolding(cryptoId);
+                  const hasHolding = holding && holding.amount > 0;
+                  
+                  return (
+                    <>
+                      <p className="text-muted-foreground mb-6 leading-relaxed">
+                        {hasHolding 
+                          ? `Vous possédez ${holding.amount.toFixed(6)} ${cryptoData.symbol} dans votre portefeuille.`
+                          : `Vous ne possédez pas de ${cryptoData.symbol} dans votre portefeuille actuellement.`
                         }
-                        
-                        const amount = prompt(`Combien de ${cryptoData.symbol} voulez-vous vendre? (Maximum: ${holding.amount.toFixed(6)})`);
-                        if (amount && !isNaN(Number(amount))) {
-                          const numAmount = Number(amount);
-                          
-                          if (numAmount > holding.amount) {
-                            alert(`Quantité insuffisante. Vous possédez seulement ${holding.amount.toFixed(6)} ${cryptoData.symbol}.`);
+                      </p>
+                      
+                      {hasHolding && (
+                        <div className="space-y-4 mb-6 bg-background/50 rounded-lg p-4 border border-border/30">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Quantité possédée:</span>
+                            <span className="font-semibold text-lg">{holding.amount.toFixed(6)} {cryptoData.symbol}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Valeur actuelle:</span>
+                            <span className="font-semibold text-lg text-primary">{formatCurrency(holding.amount * (cryptoData.market_data?.current_price?.usd || 0))}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Prix d'achat moyen:</span>
+                            <span className="font-semibold text-lg">{formatCurrency(holding.purchasePrice)}</span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <Button 
+                        size="lg"
+                        variant="outline" 
+                        className="w-full border-red-500/40 text-red-600 hover:bg-red-500/10 hover:border-red-500/60 font-semibold py-3 h-auto group-hover:shadow-lg transition-all duration-300"
+                        disabled={!hasHolding}
+                        onClick={() => {
+                          if (!hasHolding) {
+                            alert(`Vous ne possédez pas de ${cryptoData.symbol} dans votre portefeuille.`);
                             return;
                           }
                           
-                          const revenue = numAmount * (cryptoData.market_data?.current_price?.usd || 0);
-                          const success = sellCrypto(
-                            cryptoId,
-                            cryptoData.name,
-                            cryptoData.symbol,
-                            numAmount,
-                            cryptoData.market_data?.current_price?.usd || 0
-                          );
-                          
-                          if (success) {
-                            alert(`Vente réussie! Vous avez vendu ${numAmount} ${cryptoData.symbol} pour ${formatCurrency(revenue)}.`);
-                          } else {
-                            alert('Erreur lors de la vente. Veuillez réessayer.');
+                          const amount = prompt(`Combien de ${cryptoData.symbol} voulez-vous vendre? (Maximum: ${holding.amount.toFixed(6)})`);
+                          if (amount && !isNaN(Number(amount))) {
+                            const numAmount = Number(amount);
+                            
+                            if (numAmount > holding.amount) {
+                              alert(`Quantité insuffisante. Vous possédez seulement ${holding.amount.toFixed(6)} ${cryptoData.symbol}.`);
+                              return;
+                            }
+                            
+                            const revenue = numAmount * (cryptoData.market_data?.current_price?.usd || 0);
+                            const success = sellCrypto(
+                              cryptoId,
+                              cryptoData.name,
+                              cryptoData.symbol,
+                              numAmount,
+                              cryptoData.market_data?.current_price?.usd || 0
+                            );
+                            
+                            if (success) {
+                              alert(`Vente réussie! Vous avez vendu ${numAmount} ${cryptoData.symbol} pour ${formatCurrency(revenue)}.`);
+                            } else {
+                              alert('Erreur lors de la vente. Veuillez réessayer.');
+                            }
                           }
-                        }
-                      }}
-                    >
-                      <ArrowDown className="h-4 w-4 mr-2" />
-                      {hasHolding ? `Vendre ${cryptoData.symbol}` : 'Aucun actif à vendre'}
-                    </Button>
-                  </>
-                );
-              })()}
+                        }}
+                      >
+                        <ArrowDown className="h-5 w-5 mr-2" />
+                        {hasHolding ? `Vendre ${cryptoData.symbol}` : 'Aucun actif à vendre'}
+                      </Button>
+                    </>
+                  );
+                })()}
+              </div>
             </div>
           </div>
         </CardContent>

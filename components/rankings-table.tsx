@@ -74,16 +74,16 @@ export function RankingsTable({ data, currentUserId }: RankingsTableProps) {
     const isPositive = change >= 0;
     const color = isPositive ? "text-green-600" : "text-red-600";
     const icon = isPositive ? (
-      <TrendingUp className="h-3 w-3 inline mr-1" />
+      <TrendingUp className="h-3 w-3" />
     ) : (
-      <TrendingDown className="h-3 w-3 inline mr-1" />
+      <TrendingDown className="h-3 w-3" />
     );
     
     return (
-      <span className={`${color} text-xs flex items-center`}>
+      <div className={`${color} text-sm font-medium flex items-center justify-start gap-1`}>
         {icon}
-        {isPositive ? '+' : ''}{change.toFixed(2)}%
-      </span>
+        <span>{isPositive ? '+' : ''}{change.toFixed(2)}%</span>
+      </div>
     );
   };
 
@@ -95,10 +95,10 @@ export function RankingsTable({ data, currentUserId }: RankingsTableProps) {
             <TableHead className="w-[80px]">Rang</TableHead>
             <TableHead>Investisseur</TableHead>
             <TableHead className="text-right">Valeur du portefeuille</TableHead>
-            <TableHead className="text-center">1H</TableHead>
-            <TableHead className="text-center">24H</TableHead>
-            <TableHead className="text-center">7J</TableHead>
-            <TableHead className="text-center">All-time</TableHead>
+            <TableHead className="text-left w-[100px]">1H</TableHead>
+            <TableHead className="text-left w-[100px]">24H</TableHead>
+            <TableHead className="text-left w-[100px]">7J</TableHead>
+            <TableHead className="text-left w-[120px]">All-time</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -160,35 +160,35 @@ export function RankingsTable({ data, currentUserId }: RankingsTableProps) {
                   ${Number(ranking.total_value).toLocaleString()}
                 </TableCell>
 
-                <TableCell className="text-center">
+                <TableCell className="text-left">
                   {ranking.performance ? (
                     formatPercentageChange(ranking.performance.change_1h)
                   ) : (
-                    <span className="text-gray-400 text-xs">-</span>
+                    <span className="text-gray-400 text-sm">-</span>
                   )}
                 </TableCell>
 
-                <TableCell className="text-center">
+                <TableCell className="text-left">
                   {ranking.performance ? (
                     formatPercentageChange(ranking.performance.change_24h)
                   ) : (
-                    <span className="text-gray-400 text-xs">-</span>
+                    <span className="text-gray-400 text-sm">-</span>
                   )}
                 </TableCell>
 
-                <TableCell className="text-center">
+                <TableCell className="text-left">
                   {ranking.performance ? (
                     formatPercentageChange(ranking.performance.change_7d)
                   ) : (
-                    <span className="text-gray-400 text-xs">-</span>
+                    <span className="text-gray-400 text-sm">-</span>
                   )}
                 </TableCell>
 
-                <TableCell className="text-center">
+                <TableCell className="text-left">
                   {ranking.performance ? (
                     formatPercentageChange(ranking.performance.change_all_time)
                   ) : (
-                    <span className="text-gray-400 text-xs">-</span>
+                    <span className="text-gray-400 text-sm">-</span>
                   )}
                 </TableCell>
               </TableRow>
