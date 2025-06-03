@@ -164,7 +164,7 @@ export default function WalletPage() {
   }, [holdings]);
   
   // Calculate total portfolio value using current prices
-  const portfolioValue = holdings.reduce(
+  const portfolioValue = balance + holdings.reduce(
     (total, holding) => {
       const currentPrice = currentPrices[holding.cryptoId] || holding.purchasePrice;
       return total + holding.amount * currentPrice;
@@ -172,17 +172,13 @@ export default function WalletPage() {
     0
   );
 
-  // Calculate total invested amount
-  const totalInvested = holdings.reduce(
-    (total, holding) => total + holding.totalInvested,
-    0
-  );
-
-  // Calculate profit/loss
-  const profitLoss = portfolioValue - totalInvested;
-  const profitLossPercentage = totalInvested > 0 
-    ? (profitLoss / totalInvested) * 100 
-    : 0;
+  // Calculate total invested amount (from initial balance of 100K)
+  const initialBalance = 100000; // Le montant de départ standard
+  const totalInvested = initialBalance - balance; // Ce qui a été investi
+  
+  // Calculate profit/loss based on real portfolio performance
+  const profitLoss = portfolioValue - initialBalance;
+  const profitLossPercentage = (profitLoss / initialBalance) * 100;
 
   // Get color based on value (positive/negative)
   const getChangeColor = (change: number) => {
@@ -261,12 +257,12 @@ export default function WalletPage() {
   // Generate a smoother chart with fewer points to reduce visual glitches
   const portfolioChartData = useMemo(() => {
     if (transactions.length === 0) {
-      // Si aucune transaction, montrer la balance initiale avec une courbe plate
-      const initialValue = balance;
+      // Si aucune transaction, montrer l'évolution de la balance actuelle
+      const currentValue = balance;
       return [
-        { date: formatDateShort(new Date(Date.now() - 60 * 24 * 60 * 60 * 1000)), value: initialValue, formatted: formatCurrencyDisplay(initialValue) },
-        { date: formatDateShort(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)), value: initialValue, formatted: formatCurrencyDisplay(initialValue) },
-        { date: "Aujourd'hui", value: initialValue, formatted: formatCurrencyDisplay(initialValue) }
+        { date: formatDateShort(new Date(Date.now() - 60 * 24 * 60 * 60 * 1000)), value: initialBalance, formatted: formatCurrencyDisplay(initialBalance) },
+        { date: formatDateShort(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)), value: initialBalance, formatted: formatCurrencyDisplay(initialBalance) },
+        { date: "Aujourd'hui", value: currentValue, formatted: formatCurrencyDisplay(currentValue) }
       ];
     }
 
@@ -285,10 +281,7 @@ export default function WalletPage() {
     // Créer un tableau pour stocker les valeurs du portefeuille au fil du temps
     const dataPoints: ChartDataPoint[] = [];
     
-    // Commencer avec la balance initiale
-    const initialBalance = 100000; // Solde de départ standard
-    
-    // Ajouter le point de départ
+    // Ajouter le point de départ avec le solde initial de 100K
     dataPoints.push({ 
       date: formatDateShort(startDate), 
       value: initialBalance,
@@ -366,7 +359,7 @@ export default function WalletPage() {
         return total + holding.amount * price;
       }, 0);
       
-      // Éviter les valeurs négatives dans le graphique
+      // Calculer la valeur totale réelle du portfolio (balance + cryptos)
       const totalValue = Math.max(0, runningBalance) + cryptoValue;
       
       // Store previous value for tooltip
@@ -387,7 +380,7 @@ export default function WalletPage() {
     });
     
     return dataPoints;
-  }, [transactions, balance, portfolioValue, currentPrices, formatCurrencyDisplay, formatDateShort]);
+  }, [transactions, balance, portfolioValue, currentPrices, formatCurrencyDisplay, formatDateShort, initialBalance]);
   
   // Composant personnalisé pour le tooltip du graphique
   const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
@@ -493,9 +486,9 @@ export default function WalletPage() {
                 </CardDescription>
               </div>
               <div className="flex items-center space-x-2">
-                <span className={`text-sm font-medium ${getChangeColor(portfolioValue - (portfolioChartData[0]?.value || portfolioValue))}`}>
-                  {portfolioValue > (portfolioChartData[0]?.value || portfolioValue) ? '+' : ''}
-                  {((portfolioValue / Math.max((portfolioChartData[0]?.value || portfolioValue), 1) - 1) * 100).toFixed(2)}%
+                <span className={`text-sm font-medium ${getChangeColor(profitLoss)}`}>
+                  {profitLoss > 0 ? '+' : ''}
+                  {profitLossPercentage.toFixed(2)}%
                 </span>
               </div>
             </div>
