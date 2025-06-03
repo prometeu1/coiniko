@@ -310,6 +310,9 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     return holdings.find(holding => holding.cryptoId === idString);
   };
 
+  // Frais de trading (comme Binance Spot : 0.1% maker/taker)
+  const TRADING_FEE_RATE = 0.001; // 0.1%
+
   // Fonction pour acheter une crypto
   const buyCrypto = (
     cryptoId: string,
@@ -346,26 +349,28 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       return false;
     }
 
-    // Vérifier si l'utilisateur a assez d'argent
-    const cost = amount * price;
+    // Calculer le coût de base et les frais
+    const baseCost = amount * price;
+    const tradingFees = baseCost * TRADING_FEE_RATE;
+    const totalCost = baseCost + tradingFees;
     
     // Améliorer la vérification des fonds avec une tolérance pour les erreurs de précision
-    if (cost > balance + 0.01) { // Tolérance de 1 centime pour les erreurs de calcul
+    if (totalCost > balance + 0.01) { // Tolérance de 1 centime pour les erreurs de calcul
       toast({
         title: "Fonds insuffisants",
-        description: `Vous avez besoin de $${cost.toFixed(2)} mais votre solde est de $${balance.toFixed(2)}.`,
+        description: `Vous avez besoin de $${totalCost.toFixed(2)} (incluant $${tradingFees.toFixed(2)} de frais) mais votre solde est de $${balance.toFixed(2)}.`,
         variant: "destructive",
       });
       return false;
     }
 
     // S'assurer que le coût ne dépasse jamais la balance disponible
-    const actualCost = Math.min(parseFloat(cost.toFixed(2)), balance);
+    const actualTotalCost = Math.min(parseFloat(totalCost.toFixed(2)), balance);
     const actualAmount = parseFloat(amount.toFixed(8));
     
     // Simuler l'achat côté client pour une expérience fluide
     // Mettre à jour le solde avec the proper precision
-    setBalance(prevBalance => parseFloat((prevBalance - actualCost).toFixed(2)));
+    setBalance(prevBalance => parseFloat((prevBalance - actualTotalCost).toFixed(2)));
     
     // Ajouter ou mettre à jour le holding
     const existingHoldingIndex = holdings.findIndex(h => h.cryptoId === cryptoId);
@@ -374,7 +379,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     if (existingHoldingIndex >= 0) {
       const existingHolding = updatedHoldings[existingHoldingIndex];
       const newAmount = parseFloat((existingHolding.amount + actualAmount).toFixed(8));
-      const newTotalInvested = parseFloat((existingHolding.totalInvested + actualCost).toFixed(2));
+      const newTotalInvested = parseFloat((existingHolding.totalInvested + actualTotalCost).toFixed(2));
       const newAveragePrice = parseFloat((newTotalInvested / newAmount).toFixed(2));
       
       updatedHoldings[existingHoldingIndex] = {
@@ -394,7 +399,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         symbol: cryptoSymbol,
         amount: actualAmount,
         purchasePrice: price,
-        totalInvested: parseFloat(actualCost.toFixed(2))
+        totalInvested: parseFloat(actualTotalCost.toFixed(2))
       };
       
       updatedHoldings = [...holdings, newHolding];
@@ -418,12 +423,18 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     
     // Après chaque transaction réussie, mettre en cache les données localement
     try {
-      localStorage.setItem('wallet_balance', JSON.stringify(balance - actualCost));
+      localStorage.setItem('wallet_balance', JSON.stringify(balance - actualTotalCost));
       localStorage.setItem('wallet_holdings', JSON.stringify(updatedHoldings));
       localStorage.setItem('wallet_transactions', JSON.stringify(newTransactions));
     } catch (err) {
       console.warn('Erreur lors de la sauvegarde du cache local:', err);
     }
+    
+    // Message de succès avec détails des frais
+    toast({
+      title: "Achat réussi!",
+      description: `Vous avez acheté ${actualAmount.toFixed(6)} ${cryptoSymbol} pour $${baseCost.toFixed(2)} + $${tradingFees.toFixed(2)} frais (0.1%)`,
+    });
     
     // Si en mode hors ligne, ne pas envoyer au serveur
     if (isOfflineMode) {
@@ -500,12 +511,14 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       return false;
     }
     
-    // Calculer la valeur de la vente with the proper precision
-    const saleValue = parseFloat((amount * price).toFixed(2));
+    // Calculer la valeur de base de la vente et les frais
+    const baseValue = amount * price;
+    const tradingFees = baseValue * TRADING_FEE_RATE;
+    const netValue = baseValue - tradingFees; // Valeur nette après frais
     
     // Simuler la vente côté client pour une expérience fluide
-    // Mettre à jour le solde with the proper precision
-    setBalance(prevBalance => parseFloat((prevBalance + saleValue).toFixed(2)));
+    // Mettre à jour le solde avec la valeur nette (après déduction des frais)
+    setBalance(prevBalance => parseFloat((prevBalance + netValue).toFixed(2)));
     
     // Mettre à jour ou supprimer le holding
     const updatedHoldings = [...holdings];
@@ -552,12 +565,18 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     
     // Après chaque transaction réussie, mettre en cache les données localement
     try {
-      localStorage.setItem('wallet_balance', JSON.stringify(balance + saleValue));
+      localStorage.setItem('wallet_balance', JSON.stringify(balance + netValue));
       localStorage.setItem('wallet_holdings', JSON.stringify(updatedHoldings));
       localStorage.setItem('wallet_transactions', JSON.stringify(newTransactions));
     } catch (err) {
       console.warn('Erreur lors de la sauvegarde du cache local:', err);
     }
+    
+    // Message de succès avec détails des frais  
+    toast({
+      title: "Vente réussie!",
+      description: `Vous avez vendu ${amount.toFixed(6)} ${cryptoSymbol} pour $${baseValue.toFixed(2)} - $${tradingFees.toFixed(2)} frais (0.1%) = $${netValue.toFixed(2)} net`,
+    });
     
     // Si en mode hors ligne, ne pas envoyer au serveur
     if (isOfflineMode) {

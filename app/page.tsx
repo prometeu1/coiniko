@@ -24,14 +24,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowUpDown, Plus, Minus, Search, TrendingUp, TrendingDown, DollarSign, Zap, Wallet, Globe, ArrowUp, ArrowDown } from "lucide-react";
+import { ArrowUpDown, Plus, Minus, Search, TrendingUp, TrendingDown, DollarSign, Zap, Wallet, Globe, ArrowUp, ArrowDown, RotateCcw } from "lucide-react";
 import { fetchLatestCryptocurrencyListings } from "@/lib/coinmarketcap";
 import { useWallet } from "@/lib/walletContext";
-import { toast } from "@/components/ui/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 
 // Types for cryptocurrencies
 export type Crypto = {
@@ -91,6 +92,7 @@ const cryptoNameExceptions: Record<string, string> = {
 
 export default function Page() {
   const [cryptos, setCryptos] = React.useState<Crypto[]>([]);
+  const [originalCryptos, setOriginalCryptos] = React.useState<Crypto[]>([]);
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [selectedCrypto, setSelectedCrypto] = React.useState<Crypto | null>(null);
@@ -99,8 +101,10 @@ export default function Page() {
   const [amount, setAmount] = React.useState<string>('');
   const [totalValue, setTotalValue] = React.useState<number>(0);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
   
   const { balance, buyCrypto, sellCrypto, getCryptoHolding } = useWallet();
+  const { toast } = useToast();
 
   // Define columns including buy/sell actions
   const columns: ColumnDef<Crypto>[] = [
@@ -334,6 +338,7 @@ export default function Page() {
           }))
           .slice(0, 100); // Limiter à 100 cryptos maximum pour une meilleure performance
         setCryptos(formattedData);
+        setOriginalCryptos(formattedData);
       } catch (error) {
         console.error("Error loading cryptocurrencies:", error);
         toast({
@@ -489,6 +494,46 @@ export default function Page() {
     },
   });
 
+  // Fonction pour filtrer les cryptos les plus performantes (24h)
+  const showTopPerformers = () => {
+    const sorted = [...originalCryptos].sort((a, b) => b.percent_change_24h - a.percent_change_24h);
+    setCryptos(sorted.slice(0, 20)); // Top 20 des plus performantes
+    toast({
+      title: "Filtre appliqué",
+      description: "Affichage des 20 cryptomonnaies les plus performantes sur 24h",
+    });
+  };
+
+  // Fonction pour filtrer les cryptos les moins performantes (24h)
+  const showWorstPerformers = () => {
+    const sorted = [...originalCryptos].sort((a, b) => a.percent_change_24h - b.percent_change_24h);
+    setCryptos(sorted.slice(0, 20)); // Top 20 des moins performantes
+    toast({
+      title: "Filtre appliqué", 
+      description: "Affichage des 20 cryptomonnaies les moins performantes sur 24h",
+    });
+  };
+
+  // Fonction pour afficher toutes les cryptos (reset)
+  const showAllCryptos = () => {
+    setCryptos(originalCryptos);
+    toast({
+      title: "Filtre supprimé",
+      description: "Affichage de toutes les cryptomonnaies",
+    });
+  };
+
+  // Fonction pour voir les tendances (cryptos en hausse)
+  const showTrends = () => {
+    const trending = originalCryptos.filter(crypto => crypto.percent_change_24h > 0);
+    const sorted = trending.sort((a, b) => b.percent_change_24h - a.percent_change_24h);
+    setCryptos(sorted.slice(0, 30)); // Top 30 des cryptos en hausse
+    toast({
+      title: "Tendances affichées",
+      description: "Affichage des 30 cryptomonnaies en hausse sur 24h",
+    });
+  };
+
   return (
     <div className="container mx-auto py-6 animate-fade-in">
       {/* Hero section - Improved design */}
@@ -506,10 +551,10 @@ export default function Page() {
             Explorez, analysez et investissez dans les cryptomonnaies les plus populaires. Suivez leurs performances et optimisez votre portefeuille.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button className="w-full sm:w-auto bg-gradient-to-r from-primary to-blue-500 hover:opacity-90">
+            <Button className="w-full sm:w-auto bg-gradient-to-r from-primary to-blue-500 hover:opacity-90" onClick={() => window.location.href = '/wallet'}>
               <Wallet className="mr-2 h-4 w-4" /> Gérer mon portefeuille
             </Button>
-            <Button variant="outline" className="w-full sm:w-auto border-primary/20 bg-primary/5">
+            <Button variant="outline" className="w-full sm:w-auto border-primary/20 bg-primary/5" onClick={showTrends}>
               <TrendingUp className="mr-2 h-4 w-4" /> Voir les tendances
             </Button>
           </div>
@@ -531,11 +576,14 @@ export default function Page() {
             />
           </div>
           <div className="flex items-center gap-3 flex-wrap">
-            <Button variant="outline" size="sm" className="border-accent/20 hover:bg-accent/5">
+            <Button variant="outline" size="sm" className="border-accent/20 hover:bg-accent/5" onClick={showTopPerformers}>
               <TrendingUp className="mr-2 h-3 w-3" /> Les plus performantes
             </Button>
-            <Button variant="outline" size="sm" className="border-accent/20 hover:bg-accent/5">
+            <Button variant="outline" size="sm" className="border-accent/20 hover:bg-accent/5" onClick={showWorstPerformers}>
               <TrendingDown className="mr-2 h-3 w-3" /> Les moins performantes
+            </Button>
+            <Button variant="outline" size="sm" className="border-accent/20 hover:bg-accent/5" onClick={showAllCryptos}>
+              <RotateCcw className="mr-2 h-3 w-3" /> Tout afficher
             </Button>
             <span className="text-sm text-muted-foreground hidden lg:inline">
               Affichage de {table.getRowModel().rows.length} cryptomonnaies
@@ -781,6 +829,25 @@ export default function Page() {
                 className="border-accent/20 focus-visible:ring-accent"
               />
               
+              {/* Affichage du coût total avec frais */}
+              {amount && selectedCrypto && (
+                <div className="space-y-2 p-3 bg-muted/30 rounded-lg border border-border/30">
+                  <div className="flex justify-between text-sm">
+                    <span>Coût de base:</span>
+                    <span className="font-medium">${(parseFloat(amount || "0") * selectedCrypto.price).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Frais de trading (0.1%):</span>
+                    <span className="font-medium">${((parseFloat(amount || "0") * selectedCrypto.price) * 0.001).toFixed(2)}</span>
+                  </div>
+                  <Separator className="bg-border/30" />
+                  <div className="flex justify-between text-sm font-semibold">
+                    <span>Total à payer:</span>
+                    <span>${((parseFloat(amount || "0") * selectedCrypto.price) * 1.001).toFixed(2)}</span>
+                  </div>
+                </div>
+              )}
+
               {/* Barre de pourcentage */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
